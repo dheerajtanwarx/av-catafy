@@ -10,7 +10,9 @@
     "seed": "tsx src/scripts/seed.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "demo": "tsx src/scripts/demo.ts",
+    "demo:remove": "tsx src/scripts/demo.ts --remove"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1157.0",
