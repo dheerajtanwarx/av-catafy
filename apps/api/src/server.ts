@@ -2,6 +2,7 @@ import { createApp } from "./app.js";
 import { connectDb, disconnectDb } from "./db.js";
 import { env, isProd } from "./env.js";
 import { createLogger } from "./lib/logger.js";
+import { createRevalidator } from "./lib/revalidate.js";
 import { createR2Storage } from "./lib/storage.js";
 
 const logger = createLogger(env.LOG_LEVEL, env.NODE_ENV === "development");
@@ -22,12 +23,15 @@ async function main(): Promise<void> {
     publicBaseUrl: env.R2_PUBLIC_BASE_URL,
   });
 
+  const revalidate = createRevalidator(env.WEB_INTERNAL_URL, env.REVALIDATE_SECRET, logger);
+
   const app = createApp({
     logger,
     webOrigin: env.WEB_ORIGIN,
     isProd,
     jwtSecret: env.JWT_SECRET,
     storage,
+    revalidate,
   });
   const server = app.listen(env.API_PORT, () => {
     logger.info(`API listening on http://localhost:${env.API_PORT}`);

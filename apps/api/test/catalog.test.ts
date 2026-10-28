@@ -49,13 +49,11 @@ describe("products", () => {
   });
 
   it("creates a product without optional MRP or images", async () => {
-    const res = await admin
-      .post("/api/v1/admin/products")
-      .send({
-        title: "Plain",
-        price: 50000,
-        variants: [{ size: "Free", colour: "Black", stock: 0 }],
-      });
+    const res = await admin.post("/api/v1/admin/products").send({
+      title: "Plain",
+      price: 50000,
+      variants: [{ size: "Free", colour: "Black", stock: 0 }],
+    });
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({ mrp: null, images: [], packSize: null, categoryId: null });
   });

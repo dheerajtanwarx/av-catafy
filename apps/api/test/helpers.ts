@@ -27,6 +27,7 @@ export function testConfig(overrides: Partial<AppConfig> = {}): AppConfig {
       bucket: "test-bucket",
       publicBaseUrl: "https://img.test.dev",
     }),
+    revalidate: () => undefined,
     ...overrides,
   };
 }
