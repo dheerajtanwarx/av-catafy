@@ -1,14 +1,10 @@
-import { pino } from "pino";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { errorEnvelopeSchema } from "@catafy/types";
 import { createApp } from "../src/app.js";
+import { testConfig } from "./helpers.js";
 
-const app = createApp({
-  logger: pino({ level: "silent" }),
-  webOrigin: "http://localhost:3000",
-  isProd: true,
-});
+const app = createApp(testConfig({ isProd: true }));
 
 describe("GET /api/v1/health", () => {
   it("reports degraded when the database is not connected", async () => {

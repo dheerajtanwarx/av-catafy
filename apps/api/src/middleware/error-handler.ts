@@ -1,5 +1,6 @@
 import type { ErrorEnvelope } from "@catafy/types";
 import type { ErrorRequestHandler, RequestHandler } from "express";
+import mongoose from "mongoose";
 import { ZodError } from "zod";
 import { AppError } from "../lib/errors.js";
 
@@ -22,6 +23,12 @@ function toAppError(err: unknown): AppError {
   if (err instanceof AppError) return err;
   if (err instanceof ZodError) {
     return new AppError(400, "VALIDATION_ERROR", "Invalid request", err.flatten());
+  }
+  if (err instanceof mongoose.Error.ValidationError) {
+    const fieldErrors = Object.fromEntries(
+      Object.entries(err.errors).map(([path, e]) => [path, [e.message]]),
+    );
+    return new AppError(400, "VALIDATION_ERROR", "Invalid request", { fieldErrors });
   }
   if (isDuplicateKeyError(err)) {
     return AppError.conflict("A record with this value already exists", err.keyValue);

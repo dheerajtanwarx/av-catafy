@@ -11,9 +11,12 @@ export const imageSchema = new Schema(
   { _id: false },
 );
 
-/** Integer paise; rejects fractional values so floats never sneak in. */
+/** Integer paise; rejects fractional values so floats never sneak in. Null passes (optional amounts). */
 export const paise = {
   type: Number,
   min: 0,
-  validate: { validator: Number.isInteger, message: "Amount must be an integer number of paise" },
+  validate: {
+    validator: (v: number | null | undefined) => v == null || Number.isInteger(v),
+    message: "Amount must be an integer number of paise",
+  },
 } as const;

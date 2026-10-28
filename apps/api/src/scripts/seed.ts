@@ -18,7 +18,7 @@ async function seed(): Promise<void> {
     throw new Error("OWNER_EMAIL and OWNER_PASSWORD must be set to run the seed script");
   }
 
-  await connectDb(env.MONGODB_URI, logger, false);
+  await connectDb({ uri: env.MONGODB_URI, dbName: env.MONGODB_DB_NAME, autoIndex: false }, logger);
   await mongoose.syncIndexes();
   logger.info("Indexes synced");
 

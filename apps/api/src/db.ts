@@ -1,9 +1,18 @@
 import mongoose from "mongoose";
 import type { Logger } from "pino";
 
-export async function connectDb(uri: string, logger: Logger, autoIndex: boolean): Promise<void> {
+export interface DbOptions {
+  uri: string;
+  dbName: string;
+  autoIndex: boolean;
+}
+
+export async function connectDb(
+  { uri, dbName, autoIndex }: DbOptions,
+  logger: Logger,
+): Promise<void> {
   mongoose.set("strictQuery", true);
-  await mongoose.connect(uri, { autoIndex, serverSelectionTimeoutMS: 10_000 });
+  await mongoose.connect(uri, { dbName, autoIndex, serverSelectionTimeoutMS: 10_000 });
 
   // Order creation relies on multi-document transactions, which need a replica set (Atlas always is).
   const hello = await mongoose.connection.db?.admin().command({ hello: 1 });
