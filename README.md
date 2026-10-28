@@ -29,6 +29,23 @@ Check it works:
 curl http://localhost:3000/api/v1/health   # via the Next.js proxy -> {"status":"ok","db":"up"}
 ```
 
+## Cloudflare R2 setup
+
+1. Create a bucket and an API token with **Object Read & Write** on it (fills `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`).
+2. Enable public access: either the bucket's **r2.dev** URL or a custom domain → `R2_PUBLIC_BASE_URL`.
+3. Bucket → Settings → **CORS policy**, so the browser can upload directly (add your production origin later):
+
+```json
+[
+  {
+    "AllowedOrigins": ["http://localhost:3000"],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["content-type", "cache-control"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
 ## Scripts
 
 | Command                                      | What it does                                                                      |
