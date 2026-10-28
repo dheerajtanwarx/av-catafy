@@ -7,7 +7,7 @@ import { publicRouter } from "./public.js";
 export function v1Router(config: AppConfig): Router {
   const router = Router();
   router.use("/health", healthRouter);
-  router.use("/public", publicRouter());
+  router.use("/public", publicRouter(config));
   router.use("/admin", adminRouter(config));
   return router;
 }

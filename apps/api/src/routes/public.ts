@@ -1,7 +1,15 @@
-import { publicProductListQuerySchema, slugSchema } from "@catafy/types";
+import {
+  cartQuoteInputSchema,
+  checkoutInputSchema,
+  publicProductListQuerySchema,
+  slugSchema,
+} from "@catafy/types";
 import { Router } from "express";
+import type { AppConfig } from "../config.js";
 import { AppError } from "../lib/errors.js";
 import { parse } from "../lib/validate.js";
+import { createRateLimit } from "../middleware/rate-limit.js";
+import * as orders from "../services/order.service.js";
 import * as storefront from "../services/storefront.service.js";
 
 function slugParam(value: string | undefined, what: string): string {
@@ -11,7 +19,7 @@ function slugParam(value: string | undefined, what: string): string {
 }
 
 /** Read-only storefront endpoints. No auth; Next.js caches the responses. */
-export function publicRouter(): Router {
+export function publicRouter({ revalidate }: Pick<AppConfig, "revalidate">): Router {
   const router = Router();
 
   router.get("/store", async (_req, res) => {
@@ -40,6 +48,34 @@ export function publicRouter(): Router {
 
   router.get("/sitemap", async (_req, res) => {
     res.json({ items: await storefront.sitemap() });
+  });
+
+  // ---------- Cart & orders (called from the browser via the Next.js rewrite) ----------
+
+  router.post(
+    "/cart/quote",
+    createRateLimit({ windowMs: 60 * 1000, limit: 60 }),
+    async (req, res) => {
+      res.json(await orders.quoteCart(parse(cartQuoteInputSchema, req.body).items));
+    },
+  );
+
+  router.post(
+    "/orders",
+    createRateLimit({ windowMs: 15 * 60 * 1000, limit: 10 }),
+    async (req, res) => {
+      const placed = await orders.placeOrder(parse(checkoutInputSchema, req.body));
+      // Stock changed, so the storefront's cached "in stock"/"only N left" must refresh.
+      revalidate();
+      res.status(201).json(placed);
+    },
+  );
+
+  router.get("/orders/:token", async (req, res) => {
+    const token = req.params.token ?? "";
+    if (!/^[A-Za-z0-9_-]{24}$/.test(token)) throw AppError.notFound("Order not found");
+    res.set("Cache-Control", "private, no-store");
+    res.json(await orders.getOrderConfirmation(token));
   });
 
   return router;
