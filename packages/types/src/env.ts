@@ -13,8 +13,9 @@ export const apiEnvSchema = z.object({
   MONGODB_DB_NAME: z.string().min(1).default("catafy"),
   WEB_ORIGIN: url,
   JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
-  OWNER_EMAIL: z.string().email().optional(),
-  OWNER_PASSWORD: z.string().min(10).optional(),
+  /** Seed-only; validated by the seed script so a bad value never stops the server. */
+  OWNER_EMAIL: z.string().optional(),
+  OWNER_PASSWORD: z.string().optional(),
   R2_ACCOUNT_ID: nonEmpty,
   /** S3 API endpoint; defaults to https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com. */
   R2_ENDPOINT: url.optional(),
