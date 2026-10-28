@@ -1,6 +1,15 @@
 "use client";
 
-import { FolderTree, LayoutDashboard, LogOut, Menu, Shirt, Store } from "lucide-react";
+import {
+  BookOpen,
+  ExternalLink,
+  FolderTree,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Shirt,
+  Store,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
@@ -13,6 +22,7 @@ const NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/products", label: "Products", icon: Shirt },
   { href: "/admin/categories", label: "Categories", icon: FolderTree },
+  { href: "/admin/catalogues", label: "Catalogues", icon: BookOpen },
 ] as const;
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
@@ -69,6 +79,15 @@ export function AdminShell({ children }: { children: ReactNode }) {
     </Button>
   );
 
+  const storeLink = (
+    <Button variant="ghost" className="justify-start gap-3 text-muted-foreground" asChild>
+      <a href="/" target="_blank" rel="noreferrer">
+        <ExternalLink className="size-4" aria-hidden />
+        View store
+      </a>
+    </Button>
+  );
+
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[240px_1fr]">
       <aside className="sticky top-0 hidden h-dvh flex-col gap-6 border-r bg-sidebar py-6 md:flex">
@@ -76,7 +95,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <div className="flex-1 px-3">
           <NavLinks />
         </div>
-        <div className="px-3">{logoutButton}</div>
+        <div className="flex flex-col px-3">
+          {storeLink}
+          {logoutButton}
+        </div>
       </aside>
 
       <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur md:hidden">
@@ -92,7 +114,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <div className="flex-1 px-3">
               <NavLinks onNavigate={() => setOpen(false)} />
             </div>
-            <div className="px-3">{logoutButton}</div>
+            <div className="flex flex-col px-3">
+              {storeLink}
+              {logoutButton}
+            </div>
           </SheetContent>
         </Sheet>
         <Brand />

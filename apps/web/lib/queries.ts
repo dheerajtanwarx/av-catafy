@@ -2,6 +2,9 @@
 
 import type {
   AdminProductListQuery,
+  CatalogueDetailDto,
+  CatalogueDto,
+  CatalogueInputParsed,
   CategoryDto,
   CategoryInput,
   Paginated,
@@ -16,6 +19,8 @@ export const queryKeys = {
   products: (q: AdminProductListQuery) => ["admin", "products", q] as const,
   productsAll: ["admin", "products"] as const,
   product: (id: string) => ["admin", "product", id] as const,
+  catalogues: ["admin", "catalogues"] as const,
+  catalogue: (id: string) => ["admin", "catalogue", id] as const,
 };
 
 // ---------- Categories ----------
@@ -86,5 +91,43 @@ export function useDeleteProduct() {
       void qc.invalidateQueries({ queryKey: queryKeys.productsAll });
       void qc.invalidateQueries({ queryKey: queryKeys.categories });
     },
+  });
+}
+
+// ---------- Catalogues ----------
+
+export function useCatalogues() {
+  return useQuery({
+    queryKey: queryKeys.catalogues,
+    queryFn: () => api<{ items: CatalogueDto[] }>("/admin/catalogues").then((r) => r.items),
+  });
+}
+
+export function useCatalogue(id: string) {
+  return useQuery({
+    queryKey: queryKeys.catalogue(id),
+    queryFn: () => api<CatalogueDetailDto>(`/admin/catalogues/${id}`),
+  });
+}
+
+export function useSaveCatalogue() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id?: string; input: CatalogueInputParsed }) =>
+      id
+        ? api<CatalogueDetailDto>(`/admin/catalogues/${id}`, { method: "PUT", body: input })
+        : api<CatalogueDetailDto>("/admin/catalogues", { method: "POST", body: input }),
+    onSuccess: (catalogue) => {
+      qc.setQueryData(queryKeys.catalogue(catalogue.id), catalogue);
+      void qc.invalidateQueries({ queryKey: queryKeys.catalogues });
+    },
+  });
+}
+
+export function useDeleteCatalogue() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<void>(`/admin/catalogues/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.catalogues }),
   });
 }

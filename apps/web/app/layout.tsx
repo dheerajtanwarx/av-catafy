@@ -13,7 +13,7 @@ const body = DM_Sans({ subsets: ["latin"], variable: "--font-body" });
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
-  title: { default: "Catalogue", template: "%s · Catalogue" },
+  title: "Catalogue",
   description: "Browse our latest collections and order on WhatsApp.",
 };
 
