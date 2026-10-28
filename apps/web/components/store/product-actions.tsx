@@ -1,25 +1,26 @@
 "use client";
 
 import { formatPaise, type PublicProduct } from "@catafy/types";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, ShoppingBag } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { cart } from "@/lib/cart";
+import { variantLabel } from "@/lib/order-message";
 import { whatsappLink } from "@/lib/whatsapp";
+import { QuantityStepper } from "./quantity-stepper";
 import { findVariant, VariantPicker } from "./variant-picker";
 
 const LOW_STOCK = 3;
 
 function initialSelection(product: PublicProduct) {
   const firstInStock = product.variants.find((v) => v.stock > 0) ?? product.variants[0] ?? null;
-  const colours = new Set(product.variants.map((v) => v.colour));
   const sizes = new Set(product.variants.map((v) => v.size));
   return {
     colour: firstInStock?.colour ?? null,
     // Only preselect size when there is a single choice: buyers should pick their size.
-    size:
-      sizes.size === 1 || (colours.size === 1 && sizes.size === 1)
-        ? (firstInStock?.size ?? null)
-        : null,
+    size: sizes.size === 1 ? (firstInStock?.size ?? null) : null,
   };
 }
 
@@ -34,17 +35,18 @@ export function ProductActions({
   url: string;
   currency: string;
 }) {
+  const router = useRouter();
   const [selection, setSelection] = useState(() => initialSelection(product));
+  const [quantity, setQuantity] = useState(product.moq);
   const variant = findVariant(product.variants, selection.colour, selection.size);
+  const canAdd = Boolean(variant && variant.stock > 0);
+  const label = variant ? variantLabel(variant.size, variant.colour) : "";
 
-  const variantLabel = variant
-    ? [variant.colour, variant.size].filter((x) => x && x !== "Default").join(" / ")
-    : "";
   const enquiry = whatsappLink(
     whatsappNumber,
     [
       `Hi! I'm interested in ${product.title}`,
-      variantLabel && `(${variantLabel})`,
+      label && `(${label})`,
       `– ${formatPaise(product.price, currency)}`,
       url,
     ]
@@ -52,13 +54,39 @@ export function ProductActions({
       .join(" "),
   );
 
+  function addToBag() {
+    if (!variant) return;
+    try {
+      cart.add({
+        productId: product.id,
+        variantId: variant.id,
+        quantity: Math.min(quantity, variant.stock),
+        title: product.title,
+        slug: product.slug,
+        imageKey: product.images[0]?.key ?? null,
+        size: variant.size,
+        colour: variant.colour,
+        price: product.price,
+      });
+      toast.success("Added to bag", {
+        description: [product.title, label].filter(Boolean).join(" · "),
+        action: { label: "View bag", onClick: () => router.push("/cart") },
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not add to bag");
+    }
+  }
+
   return (
     <div className="space-y-6">
       <VariantPicker
         variants={product.variants}
         colour={selection.colour}
         size={selection.size}
-        onChange={setSelection}
+        onChange={(next) => {
+          setSelection(next);
+          setQuantity(product.moq);
+        }}
       />
 
       <div aria-live="polite" className="min-h-5 text-sm">
@@ -71,14 +99,29 @@ export function ProductActions({
 
       {(product.moq > 1 || product.packSize) && (
         <ul className="space-y-1 rounded-sm bg-muted px-4 py-3 text-sm">
-          {product.packSize && <li>Sold as a set of {product.packSize} pieces</li>}
+          {product.packSize && <li>Price is per set of {product.packSize} pieces</li>}
           {product.moq > 1 && <li>Minimum order: {product.moq}</li>}
         </ul>
       )}
 
-      {/* The bag/checkout button joins this in Phase 4. */}
+      {product.inStock && (
+        <div className="flex gap-3">
+          <QuantityStepper
+            value={quantity}
+            onChange={setQuantity}
+            min={1}
+            max={Math.max(1, variant?.stock ?? 1)}
+            label={product.packSize ? "Number of sets" : "Quantity"}
+          />
+          <Button size="lg" className="h-11 flex-1 text-base" onClick={addToBag} disabled={!canAdd}>
+            <ShoppingBag className="size-5" aria-hidden />
+            {canAdd ? "Add to bag" : selection.size ? "Unavailable" : "Select a size"}
+          </Button>
+        </div>
+      )}
+
       {enquiry && (
-        <Button asChild size="lg" variant="outline" className="h-12 w-full text-base">
+        <Button asChild size="lg" variant="outline" className="h-11 w-full">
           <a href={enquiry} target="_blank" rel="noreferrer">
             <MessageCircle className="size-5" aria-hidden />
             Ask on WhatsApp

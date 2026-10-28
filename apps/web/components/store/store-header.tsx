@@ -3,6 +3,7 @@ import { Search } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { imageUrl } from "@/lib/images";
+import { CartButton } from "./cart-button";
 import { MobileMenu } from "./mobile-menu";
 
 export function StoreHeader({
@@ -48,7 +49,7 @@ export function StoreHeader({
             </span>
           )}
         </Link>
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-1">
           <Link
             href="/products?focus=search"
             className="rounded-full p-2 hover:bg-accent"
@@ -56,6 +57,7 @@ export function StoreHeader({
           >
             <Search className="size-5" />
           </Link>
+          <CartButton />
         </div>
       </div>
     </header>

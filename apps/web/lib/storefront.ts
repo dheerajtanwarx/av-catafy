@@ -1,5 +1,6 @@
 import {
   CATALOG_CACHE_TAG,
+  type OrderConfirmation,
   type Paginated,
   type PublicCatalogue,
   type PublicCatalogueDetail,
@@ -71,6 +72,14 @@ export function getProducts(query: ProductQuery) {
     ...query,
     featured: query.featured === undefined ? undefined : String(query.featured),
   });
+}
+
+/** Order confirmation: per-buyer data, never cached. */
+export async function getOrderConfirmation(token: string): Promise<OrderConfirmation | null> {
+  const res = await fetch(`${API}/orders/${encodeURIComponent(token)}`, { cache: "no-store" });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Order lookup failed with ${res.status}`);
+  return (await res.json()) as OrderConfirmation;
 }
 
 export function getSitemap() {

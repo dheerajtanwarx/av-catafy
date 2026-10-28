@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import type { CSSProperties, ReactNode } from "react";
 import { StoreFooter } from "@/components/store/store-footer";
 import { StoreHeader } from "@/components/store/store-header";
+import { Toaster } from "@/components/ui/sonner";
 import { ogImageUrl, SITE_URL, truncate } from "@/lib/seo";
 import { getCategories, getStore } from "@/lib/storefront";
 
@@ -44,6 +45,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
         {children}
       </main>
       <StoreFooter store={store} />
+      <Toaster position="top-center" />
     </div>
   );
 }
