@@ -13,6 +13,10 @@ const r2 = new URL(env.R2_PUBLIC_BASE_URL);
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  env: {
+    // Needed client-side to build image URLs from stored R2 keys.
+    NEXT_PUBLIC_R2_PUBLIC_BASE_URL: env.R2_PUBLIC_BASE_URL.replace(/\/+$/, ""),
+  },
   // Lint runs as its own turbo task.
   eslint: { ignoreDuringBuilds: true },
   images: {
