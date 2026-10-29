@@ -63,6 +63,7 @@ export async function loggedInAgent(app: ReturnType<typeof createApp>) {
     get: (url: string) => agent.get(url).set("origin", WEB_ORIGIN),
     post: (url: string) => agent.post(url).set("origin", WEB_ORIGIN),
     put: (url: string) => agent.put(url).set("origin", WEB_ORIGIN),
+    patch: (url: string) => agent.patch(url).set("origin", WEB_ORIGIN),
     delete: (url: string) => agent.delete(url).set("origin", WEB_ORIGIN),
   };
 }

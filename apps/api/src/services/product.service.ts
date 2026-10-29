@@ -7,6 +7,7 @@ import type {
 import { Types, type FilterQuery, type SortOrder } from "mongoose";
 import type { z } from "zod";
 import { AppError } from "../lib/errors.js";
+import { escapeRegex } from "../lib/search.js";
 import { uniqueSlug } from "../lib/slug.js";
 import { Category, Product, type ProductDoc, type VariantDoc } from "../models/index.js";
 
@@ -54,10 +55,6 @@ export function toProductDto(p: ProductLean): ProductDto {
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
   };
-}
-
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export async function listProducts(query: ListQuery): Promise<Paginated<ProductDto>> {

@@ -15,6 +15,7 @@ import type { Types } from "mongoose";
 import { type FilterQuery, type SortOrder } from "mongoose";
 import type { z } from "zod";
 import { AppError } from "../lib/errors.js";
+import { escapeRegex } from "../lib/search.js";
 import {
   Catalogue,
   Category,
@@ -66,10 +67,6 @@ function toCard(p: ProductLean): PublicProductCard {
     hoverImage: image(p.images[1]),
     inStock: p.variants.some((v) => v.stock > 0),
   };
-}
-
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export async function getStore(): Promise<PublicStore> {
