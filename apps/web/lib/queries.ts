@@ -1,12 +1,22 @@
 "use client";
 
 import type {
+  AdminCustomerDetail,
+  AdminCustomerListQuery,
+  AdminCustomerSummary,
+  AdminOrderDetail,
+  AdminOrderListQuery,
+  AdminOrderSummary,
   AdminProductListQuery,
   CatalogueDetailDto,
   CatalogueDto,
   CatalogueInputParsed,
   CategoryDto,
   CategoryInput,
+  CustomerUpdateInput,
+  InvoiceStoreInfo,
+  OrderStatus,
+  OrderUpdateInput,
   Paginated,
   ProductDto,
   ProductInputParsed,
@@ -21,6 +31,13 @@ export const queryKeys = {
   product: (id: string) => ["admin", "product", id] as const,
   catalogues: ["admin", "catalogues"] as const,
   catalogue: (id: string) => ["admin", "catalogue", id] as const,
+  ordersAll: ["admin", "orders"] as const,
+  orders: (q: AdminOrderListQuery) => ["admin", "orders", q] as const,
+  order: (id: string) => ["admin", "order", id] as const,
+  orderPrint: (id: string) => ["admin", "order", id, "print"] as const,
+  customersAll: ["admin", "customers"] as const,
+  customers: (q: AdminCustomerListQuery) => ["admin", "customers", q] as const,
+  customer: (id: string) => ["admin", "customer", id] as const,
 };
 
 // ---------- Categories ----------
@@ -129,5 +146,85 @@ export function useDeleteCatalogue() {
   return useMutation({
     mutationFn: (id: string) => api<void>(`/admin/catalogues/${id}`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.catalogues }),
+  });
+}
+
+// ---------- Orders ----------
+
+export function useOrders(query: AdminOrderListQuery) {
+  return useQuery({
+    queryKey: queryKeys.orders(query),
+    queryFn: ({ signal }) => api<Paginated<AdminOrderSummary>>("/admin/orders", { query, signal }),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useOrder(id: string) {
+  return useQuery({
+    queryKey: queryKeys.order(id),
+    queryFn: () => api<AdminOrderDetail>(`/admin/orders/${id}`),
+  });
+}
+
+export function useOrderPrint(id: string) {
+  return useQuery({
+    queryKey: queryKeys.orderPrint(id),
+    queryFn: () =>
+      api<{ order: AdminOrderDetail; store: InvoiceStoreInfo }>(`/admin/orders/${id}/print`),
+  });
+}
+
+/** Status changes and edits both return the full order; lists and customer totals go stale. */
+function useOrderMutation<V>(mutationFn: (vars: V) => Promise<AdminOrderDetail>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: (order) => {
+      qc.setQueryData(queryKeys.order(order.id), order);
+      void qc.invalidateQueries({ queryKey: queryKeys.ordersAll });
+      void qc.invalidateQueries({ queryKey: queryKeys.customersAll });
+      void qc.invalidateQueries({ queryKey: queryKeys.customer(order.customerId) });
+      // A cancellation returns stock.
+      void qc.invalidateQueries({ queryKey: queryKeys.productsAll });
+    },
+  });
+}
+
+export function useChangeOrderStatus(id: string) {
+  return useOrderMutation((status: OrderStatus) =>
+    api<AdminOrderDetail>(`/admin/orders/${id}/status`, { method: "POST", body: { status } }),
+  );
+}
+
+export function useUpdateOrder(id: string) {
+  return useOrderMutation((input: OrderUpdateInput) =>
+    api<AdminOrderDetail>(`/admin/orders/${id}`, { method: "PATCH", body: input }),
+  );
+}
+
+// ---------- Customers ----------
+
+export function useCustomers(query: AdminCustomerListQuery) {
+  return useQuery({
+    queryKey: queryKeys.customers(query),
+    queryFn: ({ signal }) =>
+      api<Paginated<AdminCustomerSummary>>("/admin/customers", { query, signal }),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useCustomer(id: string) {
+  return useQuery({
+    queryKey: queryKeys.customer(id),
+    queryFn: () => api<AdminCustomerDetail>(`/admin/customers/${id}`),
+  });
+}
+
+export function useUpdateCustomer(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CustomerUpdateInput) =>
+      api<AdminCustomerDetail>(`/admin/customers/${id}`, { method: "PATCH", body: input }),
+    onSuccess: (customer) => qc.setQueryData(queryKeys.customer(id), customer),
   });
 }

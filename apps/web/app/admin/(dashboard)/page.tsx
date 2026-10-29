@@ -1,13 +1,16 @@
 "use client";
 
-import { AlertTriangle, FolderTree, Plus, Shirt } from "lucide-react";
+import { formatPaise } from "@catafy/types";
+import { AlertTriangle, Clock, Plus, Receipt, Shirt } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { OrderStatusBadge } from "@/components/admin/order-badges";
 import { PageHeader } from "@/components/admin/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCategories, useProducts } from "@/lib/queries";
+import { formatDateTime } from "@/lib/order-status";
+import { useOrders, useProducts } from "@/lib/queries";
 
 function Stat({
   label,
@@ -44,15 +47,16 @@ function Stat({
 
 export default function DashboardPage() {
   const products = useProducts({ limit: 100 });
-  const inactive = useProducts({ status: "inactive", limit: 1 });
-  const categories = useCategories();
+  const pending = useOrders({ status: "PENDING", limit: 1 });
+  const unpaid = useOrders({ paymentStatus: "UNPAID", limit: 1 });
+  const recent = useOrders({ limit: 6 });
   const outOfStock = products.data?.items.filter((p) => p.totalStock === 0).length;
 
   return (
     <>
       <PageHeader
         title="Dashboard"
-        description="Orders and live visitors arrive in later phases."
+        description="Live visitors and reports arrive in Phase 7."
         actions={
           <Button asChild>
             <Link href="/admin/products/new">
@@ -64,14 +68,20 @@ export default function DashboardPage() {
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
-          label="Products"
-          value={products.data?.total}
-          icon={<Shirt className="size-5" />}
-          href="/admin/products"
+          label="Pending orders"
+          value={pending.data?.total}
+          icon={<Clock className="size-5" />}
+          href="/admin/orders"
         />
         <Stat
-          label="Inactive products"
-          value={inactive.data?.total}
+          label="Unpaid orders"
+          value={unpaid.data?.total}
+          icon={<Receipt className="size-5" />}
+          href="/admin/orders"
+        />
+        <Stat
+          label="Products"
+          value={products.data?.total}
           icon={<Shirt className="size-5" />}
           href="/admin/products"
         />
@@ -81,13 +91,42 @@ export default function DashboardPage() {
           icon={<AlertTriangle className="size-5" />}
           href="/admin/products"
         />
-        <Stat
-          label="Categories"
-          value={categories.data?.length}
-          icon={<FolderTree className="size-5" />}
-          href="/admin/categories"
-        />
       </div>
+
+      <Card className="mt-6 gap-0 pb-0">
+        <CardHeader className="flex flex-row items-center justify-between pb-4">
+          <CardTitle className="text-base">Recent orders</CardTitle>
+          <Link href="/admin/orders" className="text-sm text-muted-foreground hover:underline">
+            View all
+          </Link>
+        </CardHeader>
+        {recent.isLoading ? (
+          <Skeleton className="m-4 h-40" />
+        ) : recent.data?.items.length === 0 ? (
+          <p className="border-t px-6 py-8 text-center text-sm text-muted-foreground">
+            No orders yet. Share your store link on WhatsApp to get started.
+          </p>
+        ) : (
+          <ul className="divide-y border-t">
+            {recent.data?.items.map((o) => (
+              <li key={o.id}>
+                <Link
+                  href={`/admin/orders/${o.id}`}
+                  className="flex flex-wrap items-center gap-x-4 gap-y-1 px-6 py-3 text-sm hover:bg-accent/40"
+                >
+                  <span className="font-medium tabular-nums">{o.orderNumber}</span>
+                  <span className="min-w-0 flex-1 truncate">{o.customerName}</span>
+                  <span className="hidden text-muted-foreground sm:inline">
+                    {formatDateTime(o.createdAt)}
+                  </span>
+                  <OrderStatusBadge status={o.status} />
+                  <span className="w-24 text-right tabular-nums">{formatPaise(o.total)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
     </>
   );
 }

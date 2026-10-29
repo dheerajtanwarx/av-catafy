@@ -1,22 +1,14 @@
 "use client";
 
 import { formatPaise, type AdminProductListQuery, type ProductDto } from "@catafy/types";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ImageOff,
-  Pencil,
-  Plus,
-  Search,
-  Shirt,
-  Trash2,
-} from "lucide-react";
+import { ImageOff, Pencil, Plus, Search, Shirt, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { PageHeader } from "@/components/admin/page-header";
+import { Pager } from "@/components/admin/pager";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -261,31 +253,7 @@ export default function ProductsPage() {
         )}
       </Card>
 
-      {data && data.totalPages > 1 && (
-        <nav className="mt-4 flex items-center justify-end gap-2" aria-label="Pagination">
-          <span className="mr-2 text-sm text-muted-foreground">
-            Page {data.page} of {data.totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="icon"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-            aria-label="Previous page"
-          >
-            <ChevronLeft className="size-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            disabled={page >= data.totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            aria-label="Next page"
-          >
-            <ChevronRight className="size-4" />
-          </Button>
-        </nav>
-      )}
+      {data && <Pager page={data.page} totalPages={data.totalPages} onPage={setPage} />}
     </>
   );
 }
