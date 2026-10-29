@@ -10,6 +10,7 @@ import { cart } from "@/lib/cart";
 import { variantLabel } from "@/lib/order-message";
 import { whatsappLink } from "@/lib/whatsapp";
 import { QuantityStepper } from "./quantity-stepper";
+import { UnlockForm } from "./unlock-form";
 import { findVariant, VariantPicker } from "./variant-picker";
 
 const LOW_STOCK = 3;
@@ -47,7 +48,9 @@ export function ProductActions({
     [
       `Hi! I'm interested in ${product.title}`,
       label && `(${label})`,
-      `– ${formatPaise(product.price, currency)}`,
+      product.price === null
+        ? "– could you share the price?"
+        : `– ${formatPaise(product.price, currency)}`,
       url,
     ]
       .filter(Boolean)
@@ -55,7 +58,7 @@ export function ProductActions({
   );
 
   function addToBag() {
-    if (!variant) return;
+    if (!variant || product.price === null) return;
     try {
       cart.add({
         productId: product.id,
@@ -104,7 +107,19 @@ export function ProductActions({
         </ul>
       )}
 
-      {product.inStock && (
+      {product.priceOnRequest && (
+        <div className="space-y-3 rounded-sm border px-4 py-4 text-sm">
+          <p>
+            <strong className="font-medium">Price on request.</strong>{" "}
+            {product.unlockVia
+              ? `Enter the passcode for ${product.unlockVia.name} to see prices and order, or ask us on WhatsApp.`
+              : "Ask us on WhatsApp for the price."}
+          </p>
+          {product.unlockVia && <UnlockForm slug={product.unlockVia.slug} cta="See price" />}
+        </div>
+      )}
+
+      {product.inStock && !product.priceOnRequest && (
         <div className="flex gap-3">
           <QuantityStepper
             value={quantity}
@@ -124,7 +139,7 @@ export function ProductActions({
         <Button asChild size="lg" variant="outline" className="h-11 w-full">
           <a href={enquiry} target="_blank" rel="noreferrer">
             <MessageCircle className="size-5" aria-hidden />
-            Ask on WhatsApp
+            {product.priceOnRequest ? "Ask for price on WhatsApp" : "Ask on WhatsApp"}
           </a>
         </Button>
       )}

@@ -8,12 +8,20 @@ export function Price({
   currency = "INR",
   size = "sm",
 }: {
-  price: number;
+  /** Null when the price is on request. */
+  price: number | null;
   mrp: number | null;
   discountPercent: number | null;
   currency?: string;
   size?: "sm" | "lg";
 }) {
+  if (price === null) {
+    return (
+      <p className={cn("text-muted-foreground italic", size === "lg" ? "text-xl" : "text-sm")}>
+        Price on request
+      </p>
+    );
+  }
   return (
     <p
       className={cn(

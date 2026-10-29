@@ -11,7 +11,7 @@ import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFormContext } from "react-hook-form";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +25,14 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { errorMessage } from "@/lib/api";
@@ -42,8 +50,21 @@ function toFormValues(c?: CatalogueDetailDto): CatalogueInput {
     productIds: c?.products.map((p) => p.id) ?? [],
     isActive: c?.isActive ?? true,
     sortOrder: c?.sortOrder ?? 0,
+    isPrivate: c?.isPrivate ?? false,
+    hidePrices: c?.hidePrices ?? false,
+    // Pre-filled so the owner can see and re-share it; saving it unchanged revokes nobody.
+    passcode: c?.passcode ?? "",
   };
 }
+
+type Access = "public" | "prices" | "private";
+
+const ACCESS_HELP: Record<Access, string> = {
+  public: "Anyone with the link can browse and order.",
+  prices: "Anyone can browse. Prices and ordering need the passcode.",
+  private:
+    "Hidden until the passcode is entered. Its products disappear from the rest of the store unless they're also in a public catalogue.",
+};
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -76,6 +97,10 @@ export function CatalogueForm({ catalogue }: { catalogue?: CatalogueDetailDto })
   }, [isDirty]);
 
   async function onSubmit(values: CatalogueInputParsed) {
+    if ((values.isPrivate || values.hidePrices) && !values.passcode) {
+      form.setError("passcode", { message: "Set a passcode buyers will enter" });
+      return;
+    }
     try {
       const saved = await save.mutateAsync({ id: catalogue?.id, input: values });
       form.reset(toFormValues(saved));
@@ -181,9 +206,7 @@ export function CatalogueForm({ catalogue }: { catalogue?: CatalogueDetailDto })
                   </FormItem>
                 )}
               />
-              <p className="text-xs text-muted-foreground">
-                Private catalogues with a passcode arrive in Phase 6.
-              </p>
+              <AccessFields />
             </Section>
             <Section title="Link & order">
               <FormField
@@ -247,5 +270,59 @@ export function CatalogueForm({ catalogue }: { catalogue?: CatalogueDetailDto })
         </div>
       </form>
     </Form>
+  );
+}
+
+function AccessFields() {
+  const form = useFormContext<CatalogueInput, unknown, CatalogueInputParsed>();
+  const [isPrivate, hidePrices] = form.watch(["isPrivate", "hidePrices"]);
+  const access: Access = isPrivate ? "private" : hidePrices ? "prices" : "public";
+
+  function setAccess(next: Access) {
+    form.setValue("isPrivate", next === "private", { shouldDirty: true });
+    form.setValue("hidePrices", next === "prices", { shouldDirty: true });
+  }
+
+  return (
+    <>
+      <div className="space-y-2">
+        <Label htmlFor="catalogue-access">Access</Label>
+        <Select value={access} onValueChange={(v) => setAccess(v as Access)}>
+          <SelectTrigger id="catalogue-access" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="public">Public</SelectItem>
+            <SelectItem value="prices">Price on request</SelectItem>
+            <SelectItem value="private">Private</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-sm text-muted-foreground">{ACCESS_HELP[access]}</p>
+      </div>
+      {access !== "public" && (
+        <FormField
+          control={form.control}
+          name="passcode"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Passcode</FormLabel>
+              <FormControl>
+                <Input
+                  autoComplete="off"
+                  placeholder="e.g. DIWALI24"
+                  {...field}
+                  value={field.value ?? ""}
+                />
+              </FormControl>
+              <FormDescription>
+                Share it with buyers along with the link. Not case-sensitive. Changing it locks out
+                everyone who used the old one.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+    </>
   );
 }

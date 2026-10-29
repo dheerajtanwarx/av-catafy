@@ -86,10 +86,14 @@ export default function CataloguesPage() {
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {c.productCount} product{c.productCount === 1 ? "" : "s"} · /c/{c.slug}
                   </p>
-                  {!c.isActive && (
-                    <Badge variant="outline" className="mt-2">
-                      Inactive
-                    </Badge>
+                  {(!c.isActive || c.isPrivate || c.hidePrices) && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {!c.isActive && <Badge variant="outline">Inactive</Badge>}
+                      {c.isPrivate && <Badge variant="secondary">Private</Badge>}
+                      {!c.isPrivate && c.hidePrices && (
+                        <Badge variant="secondary">Price on request</Badge>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="flex shrink-0">

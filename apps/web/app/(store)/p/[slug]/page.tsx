@@ -16,9 +16,11 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const [product, store] = await Promise.all([getProduct(slug), getStore()]);
   if (!product) return { title: "Not found", robots: { index: false } };
 
-  const price = formatPaise(product.price, store.currency);
-  // Price in the title so WhatsApp/Instagram link previews show it.
-  const title = `${product.title} – ${price}`;
+  // Price in the title so WhatsApp/Instagram link previews show it (never a locked one).
+  const title =
+    product.price === null
+      ? product.title
+      : `${product.title} – ${formatPaise(product.price, store.currency)}`;
   const description = truncate(
     product.description ||
       [product.fabric, product.category?.name].filter(Boolean).join(" · ") ||
@@ -46,10 +48,13 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
         : undefined,
     },
     twitter: { card: "summary_large_image", title, description },
-    other: {
-      "product:price:amount": String(product.price / 100),
-      "product:price:currency": store.currency,
-    },
+    other:
+      product.price === null
+        ? undefined
+        : {
+            "product:price:amount": String(product.price / 100),
+            "product:price:currency": store.currency,
+          },
   };
 }
 
@@ -65,15 +70,18 @@ export default async function ProductPage({ params }: { params: Params }) {
     name: product.title,
     description: product.description || undefined,
     image: product.images.map((i) => imageUrl(i.key)),
-    offers: {
-      "@type": "Offer",
-      price: (product.price / 100).toFixed(2),
-      priceCurrency: store.currency,
-      availability: product.inStock
-        ? "https://schema.org/InStock"
-        : "https://schema.org/OutOfStock",
-      url,
-    },
+    offers:
+      product.price === null
+        ? undefined
+        : {
+            "@type": "Offer",
+            price: (product.price / 100).toFixed(2),
+            priceCurrency: store.currency,
+            availability: product.inStock
+              ? "https://schema.org/InStock"
+              : "https://schema.org/OutOfStock",
+            url,
+          },
   };
 
   return (

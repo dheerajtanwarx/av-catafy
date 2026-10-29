@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import { LockKeyhole } from "lucide-react";
 import { ProductGrid } from "@/components/store/product-card";
+import { UnlockForm } from "@/components/store/unlock-form";
 import { imageUrl } from "@/lib/images";
 import { ogImageUrl, SITE_URL, truncate } from "@/lib/seo";
 import { getCatalogue, getStore } from "@/lib/storefront";
@@ -12,6 +14,15 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const { slug } = await params;
   const catalogue = await getCatalogue(slug);
   if (!catalogue) return { title: "Not found", robots: { index: false } };
+  if (catalogue.access === "locked") {
+    // Link previews show only the name; nothing behind the passcode.
+    return {
+      title: catalogue.name,
+      description: "A private collection. Enter the passcode to view.",
+      robots: { index: false, follow: false },
+      openGraph: { type: "website", title: catalogue.name, url: `${SITE_URL}/c/${catalogue.slug}` },
+    };
+  }
   const description = truncate(
     catalogue.description || `${catalogue.productCount} pieces in ${catalogue.name}.`,
   );
@@ -35,6 +46,22 @@ export default async function CataloguePage({ params }: { params: Params }) {
   const { slug } = await params;
   const [catalogue, store] = await Promise.all([getCatalogue(slug), getStore()]);
   if (!catalogue) notFound();
+
+  if (catalogue.access === "locked") {
+    return (
+      <div className="mx-auto flex min-h-[60svh] max-w-md flex-col items-center justify-center px-4 py-16 text-center">
+        <LockKeyhole className="size-8 text-brand" aria-hidden />
+        <p className="mt-4 text-xs tracking-[0.2em] text-muted-foreground uppercase">
+          Private collection
+        </p>
+        <h1 className="mt-2 font-display text-4xl font-medium md:text-5xl">{catalogue.name}</h1>
+        <p className="mt-3 mb-8 text-sm text-muted-foreground">
+          Enter the passcode {store.storeName} shared with you to view this collection.
+        </p>
+        <UnlockForm slug={catalogue.slug} cta="View" />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -67,6 +94,17 @@ export default async function CataloguePage({ params }: { params: Params }) {
           <p className="mb-10 max-w-2xl whitespace-pre-line text-muted-foreground">
             {catalogue.description}
           </p>
+        )}
+        {catalogue.access === "prices_locked" && (
+          <div className="mb-10 flex max-w-2xl flex-col gap-3 rounded-sm border bg-card p-5 sm:flex-row sm:items-center">
+            <p className="text-sm sm:flex-1">
+              <strong className="font-medium">Prices on request.</strong> Have a passcode? Enter it
+              to see prices and order.
+            </p>
+            <div className="sm:w-72">
+              <UnlockForm slug={catalogue.slug} cta="See prices" />
+            </div>
+          </div>
         )}
         <ProductGrid
           products={catalogue.products}
