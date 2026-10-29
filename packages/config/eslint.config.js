@@ -7,7 +7,8 @@ export default tseslint.config(
   {
     ignores: [
       "**/dist/**",
-      "**/.next/**",
+      // Any Next.js dist dir, including NEXT_DIST_DIR builds such as .next-e2e.
+      "**/.next*/**",
       "**/node_modules/**",
       "**/coverage/**",
       "**/next-env.d.ts",
