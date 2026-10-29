@@ -31,6 +31,8 @@ export function createApp(config: AppConfig): Express {
   app.use(helmet());
   // Browsers reach the API same-origin through the Next.js rewrite; CORS only covers direct calls.
   app.use(cors({ origin: webOrigin, credentials: true }));
+  // Bulk import sends up to 2,000 spreadsheet rows; everything else stays small.
+  app.use("/api/v1/admin/import", express.json({ limit: "2mb" }));
   app.use(express.json({ limit: "100kb" }));
   app.use(cookieParser());
 
