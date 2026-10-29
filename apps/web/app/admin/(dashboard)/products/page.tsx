@@ -1,7 +1,7 @@
 "use client";
 
 import { formatPaise, type AdminProductListQuery, type ProductDto } from "@catafy/types";
-import { ImageOff, Pencil, Plus, Search, Shirt, Trash2 } from "lucide-react";
+import { ImageOff, Pencil, Plus, Search, Shirt, Trash2, Upload } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
@@ -80,12 +80,20 @@ export default function ProductsPage() {
         title="Products"
         description={data ? `${data.total} product${data.total === 1 ? "" : "s"}` : undefined}
         actions={
-          <Button asChild>
-            <Link href="/admin/products/new">
-              <Plus className="size-4" aria-hidden />
-              Add product
-            </Link>
-          </Button>
+          <>
+            <Button variant="outline" asChild>
+              <Link href="/admin/products/import">
+                <Upload className="size-4" aria-hidden />
+                Import
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/admin/products/new">
+                <Plus className="size-4" aria-hidden />
+                Add product
+              </Link>
+            </Button>
+          </>
         }
       />
 

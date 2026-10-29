@@ -197,7 +197,7 @@ export function CatalogueForm({ catalogue }: { catalogue?: CatalogueDetailDto })
                     <div>
                       <FormLabel>Active</FormLabel>
                       <FormDescription>
-                        The link works and it shows on the home page.
+                        The link works. Unless private, it also shows on the home page.
                       </FormDescription>
                     </div>
                     <FormControl>

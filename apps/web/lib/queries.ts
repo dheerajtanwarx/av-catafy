@@ -14,6 +14,8 @@ import type {
   CategoryDto,
   CategoryInput,
   CustomerUpdateInput,
+  ImportInput,
+  ImportReport,
   InvoiceStoreInfo,
   OrderStatus,
   OrderUpdateInput,
@@ -105,6 +107,19 @@ export function useDeleteProduct() {
   return useMutation({
     mutationFn: (id: string) => api<void>(`/admin/products/${id}`, { method: "DELETE" }),
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.productsAll });
+      void qc.invalidateQueries({ queryKey: queryKeys.categories });
+    },
+  });
+}
+
+export function useImportProducts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ImportInput) =>
+      api<ImportReport>("/admin/import/products", { method: "POST", body: input }),
+    onSuccess: (report) => {
+      if (!report.summary.created) return;
       void qc.invalidateQueries({ queryKey: queryKeys.productsAll });
       void qc.invalidateQueries({ queryKey: queryKeys.categories });
     },
