@@ -17,11 +17,16 @@ import type {
   ImportInput,
   ImportReport,
   InvoiceStoreInfo,
+  LiveSnapshot,
   OrderStatus,
   OrderUpdateInput,
   Paginated,
   ProductDto,
   ProductInputParsed,
+  ReportsDto,
+  ReportsQuery,
+  StoreSettingsDto,
+  StoreSettingsInputParsed,
 } from "@catafy/types";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
@@ -40,6 +45,9 @@ export const queryKeys = {
   customersAll: ["admin", "customers"] as const,
   customers: (q: AdminCustomerListQuery) => ["admin", "customers", q] as const,
   customer: (id: string) => ["admin", "customer", id] as const,
+  live: ["admin", "live"] as const,
+  reports: (q: ReportsQuery) => ["admin", "reports", q] as const,
+  settings: ["admin", "settings"] as const,
 };
 
 // ---------- Categories ----------
@@ -241,5 +249,45 @@ export function useUpdateCustomer(id: string) {
     mutationFn: (input: CustomerUpdateInput) =>
       api<AdminCustomerDetail>(`/admin/customers/${id}`, { method: "PATCH", body: input }),
     onSuccess: (customer) => qc.setQueryData(queryKeys.customer(id), customer),
+  });
+}
+
+// ---------- Analytics ----------
+
+export const LIVE_POLL_MS = 10_000;
+
+/** Short polling (decision 6). TanStack Query pauses it while the tab is hidden. */
+export function useLive() {
+  return useQuery({
+    queryKey: queryKeys.live,
+    queryFn: () => api<LiveSnapshot>("/admin/analytics/live"),
+    refetchInterval: LIVE_POLL_MS,
+  });
+}
+
+export function useReports(query: ReportsQuery) {
+  return useQuery({
+    queryKey: queryKeys.reports(query),
+    queryFn: ({ signal }) => api<ReportsDto>("/admin/analytics/reports", { query, signal }),
+    placeholderData: keepPreviousData,
+  });
+}
+
+// ---------- Settings ----------
+
+export function useSettings() {
+  return useQuery({
+    queryKey: queryKeys.settings,
+    queryFn: () => api<StoreSettingsDto>("/admin/settings"),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useSaveSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: StoreSettingsInputParsed) =>
+      api<StoreSettingsDto>("/admin/settings", { method: "PUT", body: input }),
+    onSuccess: (settings) => qc.setQueryData(queryKeys.settings, settings),
   });
 }

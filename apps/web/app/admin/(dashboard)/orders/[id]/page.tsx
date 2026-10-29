@@ -1,6 +1,11 @@
 "use client";
 
-import { formatPaise, type AdminOrderDetail, type OrderStatus } from "@catafy/types";
+import {
+  formatPaise,
+  renderOrderMessage,
+  type AdminOrderDetail,
+  type OrderStatus,
+} from "@catafy/types";
 import { ArrowLeft, Loader2, MessageCircle, Package, Printer } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -17,7 +22,7 @@ import { errorMessage } from "@/lib/api";
 import { imageUrl } from "@/lib/images";
 import { variantLabel } from "@/lib/order-message";
 import { formatDateTime, ORDER_STATUS_LABEL } from "@/lib/order-status";
-import { useChangeOrderStatus, useOrder } from "@/lib/queries";
+import { useChangeOrderStatus, useOrder, useSettings } from "@/lib/queries";
 import { whatsappLink } from "@/lib/whatsapp";
 
 const NEXT_ACTION: Partial<Record<OrderStatus, string>> = {
@@ -121,6 +126,7 @@ function StatusCard({ order }: { order: AdminOrderDetail }) {
 export default function OrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { data: order, isLoading, isError, error } = useOrder(id);
+  const { data: settings } = useSettings();
 
   if (isLoading) {
     return (
@@ -138,7 +144,19 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const a = order.shippingAddress;
   const chat = whatsappLink(
     a.phone,
-    `Hi ${a.name.split(" ")[0]}, about your order ${order.orderNumber}: `,
+    renderOrderMessage(settings?.orderConfirmationTemplate ?? "", {
+      name: a.name.split(" ")[0] ?? a.name,
+      orderNumber: order.orderNumber,
+      total: formatPaise(order.total, settings?.currency),
+      items: order.items
+        .map((i, n) => {
+          const v = variantLabel(i.size, i.colour);
+          return `${n + 1}. ${i.title}${v ? ` (${v})` : ""} × ${i.quantity}`;
+        })
+        .join("\n"),
+      storeName: settings?.storeName ?? "",
+      amountDue: formatPaise(Math.max(0, order.total - order.amountReceived), settings?.currency),
+    }),
   );
 
   return (

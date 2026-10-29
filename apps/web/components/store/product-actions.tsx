@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { track } from "@/lib/analytics";
 import { cart } from "@/lib/cart";
 import { variantLabel } from "@/lib/order-message";
 import { whatsappLink } from "@/lib/whatsapp";
@@ -71,6 +72,7 @@ export function ProductActions({
         colour: variant.colour,
         price: product.price,
       });
+      track("add_to_cart", { productId: product.id });
       toast.success("Added to bag", {
         description: [product.title, label].filter(Boolean).join(" · "),
         action: { label: "View bag", onClick: () => router.push("/cart") },

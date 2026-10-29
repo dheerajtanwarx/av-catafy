@@ -1,7 +1,7 @@
 "use client";
 
 import { formatPaise } from "@catafy/types";
-import { AlertTriangle, Clock, Plus, Receipt, Shirt } from "lucide-react";
+import { AlertTriangle, Clock, Plus, Radio, Receipt } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { OrderStatusBadge } from "@/components/admin/order-badges";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/order-status";
-import { useOrders, useProducts } from "@/lib/queries";
+import { useLive, useOrders, useProducts, useSettings } from "@/lib/queries";
 
 function Stat({
   label,
@@ -50,13 +50,18 @@ export default function DashboardPage() {
   const pending = useOrders({ status: "PENDING", limit: 1 });
   const unpaid = useOrders({ paymentStatus: "UNPAID", limit: 1 });
   const recent = useOrders({ limit: 6 });
-  const outOfStock = products.data?.items.filter((p) => p.totalStock === 0).length;
+  const live = useLive();
+  const lowStock = useSettings().data?.lowStockThreshold;
+  const lowOrOut =
+    lowStock === undefined
+      ? undefined
+      : products.data?.items.filter((p) => p.totalStock <= lowStock).length;
 
   return (
     <>
       <PageHeader
         title="Dashboard"
-        description="Live visitors and reports arrive in Phase 7."
+        description="Today at a glance."
         actions={
           <Button asChild>
             <Link href="/admin/products/new">
@@ -80,14 +85,14 @@ export default function DashboardPage() {
           href="/admin/orders"
         />
         <Stat
-          label="Products"
-          value={products.data?.total}
-          icon={<Shirt className="size-5" />}
-          href="/admin/products"
+          label="Visitors now"
+          value={live.data?.visitors.length}
+          icon={<Radio className="size-5" />}
+          href="/admin/live"
         />
         <Stat
-          label="Out of stock"
-          value={outOfStock}
+          label="Low or out of stock"
+          value={lowOrOut}
           icon={<AlertTriangle className="size-5" />}
           href="/admin/products"
         />

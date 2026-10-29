@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import type { CSSProperties, ReactNode } from "react";
+import { PageTracker } from "@/components/store/page-tracker";
 import { StoreFooter } from "@/components/store/store-footer";
 import { StoreHeader } from "@/components/store/store-header";
 import { Toaster } from "@/components/ui/sonner";
@@ -46,6 +47,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
       </main>
       <StoreFooter store={store} />
       <Toaster position="top-center" />
+      <PageTracker />
     </div>
   );
 }

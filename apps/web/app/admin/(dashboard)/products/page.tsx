@@ -32,15 +32,13 @@ import {
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { errorMessage } from "@/lib/api";
 import { imageUrl } from "@/lib/images";
-import { useCategories, useDeleteProduct, useProducts } from "@/lib/queries";
+import { useCategories, useDeleteProduct, useProducts, useSettings } from "@/lib/queries";
 
-// Replaced by the store's low-stock threshold setting in Phase 7.
-const LOW_STOCK = 5;
 const ALL = "all";
 
-function StockBadge({ stock }: { stock: number }) {
+function StockBadge({ stock, lowStock }: { stock: number; lowStock: number }) {
   if (stock === 0) return <Badge variant="destructive">Out of stock</Badge>;
-  if (stock <= LOW_STOCK)
+  if (stock <= lowStock)
     return <Badge className="bg-amber-100 text-amber-900">Low · {stock}</Badge>;
   return <span className="tabular-nums">{stock}</span>;
 }
@@ -63,6 +61,7 @@ export default function ProductsPage() {
   const categories = useCategories();
   const categoryName = new Map(categories.data?.map((c) => [c.id, c.name]));
   const remove = useDeleteProduct();
+  const lowStock = useSettings().data?.lowStockThreshold ?? 5;
   const filtered = Boolean(q) || status !== "all" || categoryId !== ALL;
 
   async function onDelete(p: ProductDto) {
@@ -230,7 +229,7 @@ export default function ProductsPage() {
                         )}
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
-                        <StockBadge stock={p.totalStock} />
+                        <StockBadge stock={p.totalStock} lowStock={lowStock} />
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
                         <Badge variant={p.isActive ? "secondary" : "outline"}>

@@ -2,12 +2,15 @@
 
 import {
   BookOpen,
+  ChartColumn,
   ExternalLink,
   FolderTree,
   LayoutDashboard,
   LogOut,
   Menu,
+  Radio,
   Receipt,
+  Settings,
   Shirt,
   Store,
   Users,
@@ -27,6 +30,9 @@ const NAV = [
   { href: "/admin/products", label: "Products", icon: Shirt },
   { href: "/admin/categories", label: "Categories", icon: FolderTree },
   { href: "/admin/catalogues", label: "Catalogues", icon: BookOpen },
+  { href: "/admin/live", label: "Live", icon: Radio },
+  { href: "/admin/reports", label: "Reports", icon: ChartColumn },
+  { href: "/admin/settings", label: "Settings", icon: Settings },
 ] as const;
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
