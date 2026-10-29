@@ -1,4 +1,5 @@
 export * from "./admin-orders.js";
+export * from "./analytics.js";
 export * from "./auth.js";
 export * from "./catalog.js";
 export * from "./common.js";
@@ -7,5 +8,6 @@ export * from "./env.js";
 export * from "./errors.js";
 export * from "./import.js";
 export * from "./orders.js";
+export * from "./settings.js";
 export * from "./storefront.js";
 export * from "./uploads.js";

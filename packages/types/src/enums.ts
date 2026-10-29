@@ -12,6 +12,8 @@ export const PAYMENT_STATUSES = ["UNPAID", "PARTIAL", "PAID"] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
 export const ANALYTICS_EVENT_TYPES = [
+  /** Any other storefront page (home, listing, bag). */
+  "page_view",
   "catalogue_view",
   "product_view",
   "add_to_cart",
