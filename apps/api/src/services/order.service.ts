@@ -21,7 +21,7 @@ import {
   type ProductDoc,
   type VariantDoc,
 } from "../models/index.js";
-import { VISIBLE_PRODUCT } from "./storefront.service.js";
+import { VISIBLE_PRODUCT, visibleProductFilter, type Restrictions } from "./access.service.js";
 
 type OrderLean = OrderDoc & { createdAt: Date };
 type ProductLean = ProductDoc & {
@@ -32,19 +32,23 @@ type ProductLean = ProductDoc & {
 /**
  * Prices every line from the database (client prices are never used) and flags anything that
  * can't be ordered: hidden/deleted products, missing variants, stock and minimum order quantity.
+ * Products this buyer can't see, or whose price is on request, come back "unavailable" with no
+ * price, so a quote never reveals a locked price.
  */
 export async function quoteCart(
   items: CartItemInput[],
+  r: Restrictions,
   session?: ClientSession,
 ): Promise<CartQuote> {
   const merged = mergeCartItems(items);
   const products = await Product.find({
-    ...VISIBLE_PRODUCT,
-    _id: { $in: [...new Set(merged.map((i) => i.productId))] },
+    $and: [visibleProductFilter(r), { _id: { $in: [...new Set(merged.map((i) => i.productId))] } }],
   })
     .session(session ?? null)
     .lean<ProductLean[]>();
-  const byId = new Map(products.map((p) => [p._id.toString(), p]));
+  const byId = new Map(
+    products.filter((p) => !r.priceLocked.has(p._id.toString())).map((p) => [p._id.toString(), p]),
+  );
 
   const lines: QuoteLine[] = merged.map((item) => {
     const product = byId.get(item.productId);
@@ -128,13 +132,14 @@ function cartChanged(lines: QuoteLine[]): AppError {
  */
 export async function placeOrder(
   input: CheckoutInputParsed,
+  r: Restrictions,
 ): Promise<{ orderNumber: string; token: string }> {
   const session = await mongoose.startSession();
   try {
     let result: { orderNumber: string; token: string } | undefined;
     // withTransaction retries on transient write conflicts, so this callback must be re-runnable.
     await session.withTransaction(async () => {
-      const quote = await quoteCart(input.items, session);
+      const quote = await quoteCart(input.items, r, session);
       const blocked = quote.lines.filter((l) => l.issue);
       if (blocked.length) throw cartChanged(blocked);
 

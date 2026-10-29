@@ -11,7 +11,11 @@ const catalogueSchema = new Schema(
     productIds: { type: [{ type: Schema.Types.ObjectId, ref: "Product" }], default: [] },
     isActive: { type: Boolean, default: true },
     isPrivate: { type: Boolean, default: false },
-    passcodeHash: { type: String, select: false, default: null },
+    /**
+     * Stored as entered so the owner can re-share it (it guards a catalogue, not an account).
+     * Never selected by default; only the admin API and the access check read it.
+     */
+    passcode: { type: String, select: false, default: null },
     hidePrices: { type: Boolean, default: false },
     sortOrder: { type: Number, default: 0 },
   },

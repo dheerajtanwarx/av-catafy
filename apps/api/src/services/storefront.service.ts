@@ -1,5 +1,6 @@
 import {
   discountPercent,
+  type CatalogueAccess,
   type ImageInput,
   type Paginated,
   type PublicCatalogue,
@@ -27,6 +28,7 @@ import {
   type ProductDoc,
   type VariantDoc,
 } from "../models/index.js";
+import { visibleProductFilter, type Restrictions } from "./access.service.js";
 
 type ListQuery = z.output<typeof publicProductListQuerySchema>;
 type ProductLean = ProductDoc & {
@@ -38,12 +40,8 @@ type CategoryLean = CategoryDoc & { _id: Types.ObjectId; updatedAt: Date };
 type CatalogueLean = CatalogueDoc & { _id: Types.ObjectId; updatedAt: Date };
 type ImageLike = { key: string; width: number; height: number; alt: string } | null | undefined;
 
-/**
- * The single definition of "a buyer may see this product".
- * Phase 6 extends this to hide products that only appear in private catalogues.
- */
-export const VISIBLE_PRODUCT: FilterQuery<ProductDoc> = { isActive: true, deletedAt: null };
-const VISIBLE_CATALOGUE: FilterQuery<CatalogueDoc> = { isActive: true, isPrivate: false };
+/** Catalogues listed on the storefront. Private ones are only reachable by their link. */
+const LISTED_CATALOGUE: FilterQuery<CatalogueDoc> = { isActive: true, isPrivate: false };
 
 const SORTS: Record<ListQuery["sort"], Record<string, SortOrder>> = {
   newest: { createdAt: -1 },
@@ -55,14 +53,17 @@ function image(i: ImageLike): ImageInput | null {
   return i ? { key: i.key, width: i.width, height: i.height, alt: i.alt } : null;
 }
 
-function toCard(p: ProductLean): PublicProductCard {
+/** Price-on-request products never leave the API with their price, MRP or discount. */
+function toCard(p: ProductLean, r: Restrictions): PublicProductCard {
+  const onRequest = r.priceLocked.has(p._id.toString());
   return {
     id: p._id.toString(),
     slug: p.slug,
     title: p.title,
-    price: p.price,
-    mrp: p.mrp ?? null,
-    discountPercent: discountPercent(p.price, p.mrp),
+    price: onRequest ? null : p.price,
+    priceOnRequest: onRequest,
+    mrp: onRequest ? null : (p.mrp ?? null),
+    discountPercent: onRequest ? null : discountPercent(p.price, p.mrp),
     image: image(p.images[0]),
     hoverImage: image(p.images[1]),
     inStock: p.variants.some((v) => v.stock > 0),
@@ -90,8 +91,11 @@ export async function getStore(): Promise<PublicStore> {
   };
 }
 
-export async function listProducts(query: ListQuery): Promise<Paginated<PublicProductCard>> {
-  const filter: FilterQuery<ProductDoc> = { ...VISIBLE_PRODUCT };
+export async function listProducts(
+  query: ListQuery,
+  r: Restrictions,
+): Promise<Paginated<PublicProductCard>> {
+  const filter: FilterQuery<ProductDoc> = { ...visibleProductFilter(r) };
   if (query.featured !== undefined) filter.isFeatured = query.featured;
   if (query.category) {
     const category = await Category.findOne({ slug: query.category, isActive: true })
@@ -116,7 +120,7 @@ export async function listProducts(query: ListQuery): Promise<Paginated<PublicPr
     Product.countDocuments(filter),
   ]);
   return {
-    items: items.map(toCard),
+    items: items.map((p) => toCard(p, r)),
     page: query.page,
     limit: query.limit,
     total,
@@ -124,13 +128,13 @@ export async function listProducts(query: ListQuery): Promise<Paginated<PublicPr
   };
 }
 
-export async function getProduct(slug: string): Promise<PublicProduct> {
-  const p = await Product.findOne({ ...VISIBLE_PRODUCT, slug }).lean<ProductLean>();
+export async function getProduct(slug: string, r: Restrictions): Promise<PublicProduct> {
+  const p = await Product.findOne({ ...visibleProductFilter(r), slug }).lean<ProductLean>();
   if (!p) throw AppError.notFound("Product not found");
   const category = p.categoryId
     ? await Category.findOne({ _id: p.categoryId, isActive: true }).select("name slug").lean()
     : null;
-  const { image: _cover, hoverImage: _hover, ...card } = toCard(p);
+  const { image: _cover, hoverImage: _hover, ...card } = toCard(p, r);
   return {
     ...card,
     description: p.description,
@@ -147,14 +151,15 @@ export async function getProduct(slug: string): Promise<PublicProduct> {
       stock: v.stock,
     })),
     category: category ? { name: category.name, slug: category.slug } : null,
+    unlockVia: r.priceLocked.get(p._id.toString()) ?? null,
     updatedAt: p.updatedAt.toISOString(),
   };
 }
 
 /** Active categories that have at least one visible product. */
-export async function listCategories(): Promise<PublicCategory[]> {
+export async function listCategories(r: Restrictions): Promise<PublicCategory[]> {
   const counts = await Product.aggregate<{ _id: Types.ObjectId; count: number }>([
-    { $match: { ...VISIBLE_PRODUCT, categoryId: { $ne: null } } },
+    { $match: { ...visibleProductFilter(r), categoryId: { $ne: null } } },
     { $group: { _id: "$categoryId", count: { $sum: 1 } } },
   ]);
   const byId = new Map(counts.map((c) => [c._id.toString(), c.count]));
@@ -171,19 +176,32 @@ export async function listCategories(): Promise<PublicCategory[]> {
   }));
 }
 
-async function visibleProductsById(ids: Types.ObjectId[]): Promise<Map<string, ProductLean>> {
-  const products = await Product.find({ ...VISIBLE_PRODUCT, _id: { $in: ids } }).lean<
-    ProductLean[]
-  >();
+async function visibleProductsById(
+  ids: Types.ObjectId[],
+  r: Restrictions,
+): Promise<Map<string, ProductLean>> {
+  // $in plus the restriction filter's $nin on the same field: combine with $and.
+  const products = await Product.find({
+    $and: [visibleProductFilter(r), { _id: { $in: ids } }],
+  }).lean<ProductLean[]>();
   return new Map(products.map((p) => [p._id.toString(), p]));
 }
 
+function accessFor(c: CatalogueLean, r: Restrictions): CatalogueAccess {
+  if (r.unlocked.has(c._id.toString())) return "open";
+  if (c.isPrivate) return "locked";
+  return c.hidePrices ? "prices_locked" : "open";
+}
+
 /** Public catalogues with at least one visible product. */
-export async function listCatalogues(): Promise<PublicCatalogue[]> {
-  const catalogues = await Catalogue.find(VISIBLE_CATALOGUE)
+export async function listCatalogues(r: Restrictions): Promise<PublicCatalogue[]> {
+  const catalogues = await Catalogue.find(LISTED_CATALOGUE)
     .sort({ sortOrder: 1, createdAt: -1 })
     .lean<CatalogueLean[]>();
-  const visible = await visibleProductsById(catalogues.flatMap((c) => c.productIds));
+  const visible = await visibleProductsById(
+    catalogues.flatMap((c) => c.productIds),
+    r,
+  );
   return catalogues
     .map((c) => ({
       slug: c.slug,
@@ -193,18 +211,31 @@ export async function listCatalogues(): Promise<PublicCatalogue[]> {
         image(c.coverImage) ??
         image(c.productIds.map((id) => visible.get(id.toString())).find(Boolean)?.images[0]),
       productCount: c.productIds.filter((id) => visible.has(id.toString())).length,
+      access: accessFor(c, r),
     }))
     .filter((c) => c.productCount > 0);
 }
 
-export async function getCatalogue(slug: string): Promise<PublicCatalogueDetail> {
-  // Private catalogues stay 404 until passcode access lands in Phase 6.
-  const c = await Catalogue.findOne({ ...VISIBLE_CATALOGUE, slug }).lean<CatalogueLean>();
+export async function getCatalogue(slug: string, r: Restrictions): Promise<PublicCatalogueDetail> {
+  const c = await Catalogue.findOne({ isActive: true, slug }).lean<CatalogueLean>();
   if (!c) throw AppError.notFound("Catalogue not found");
-  const visible = await visibleProductsById(c.productIds);
+  const access = accessFor(c, r);
+  if (access === "locked") {
+    // Only the name, so the passcode screen can say what it unlocks.
+    return {
+      slug: c.slug,
+      name: c.name,
+      description: "",
+      coverImage: null,
+      productCount: 0,
+      access,
+      products: [],
+    };
+  }
+  const visible = await visibleProductsById(c.productIds, r);
   const products = c.productIds.flatMap((id) => {
     const p = visible.get(id.toString());
-    return p ? [toCard(p)] : [];
+    return p ? [toCard(p, r)] : [];
   });
   return {
     slug: c.slug,
@@ -212,17 +243,19 @@ export async function getCatalogue(slug: string): Promise<PublicCatalogueDetail>
     description: c.description,
     coverImage: image(c.coverImage) ?? products[0]?.image ?? null,
     productCount: products.length,
+    access,
     products,
   };
 }
 
-export async function sitemap(): Promise<SitemapEntry[]> {
+/** Always built for an anonymous visitor: nothing restricted is ever listed. */
+export async function sitemap(r: Restrictions): Promise<SitemapEntry[]> {
   const [products, categories, catalogues] = await Promise.all([
-    Product.find(VISIBLE_PRODUCT)
+    Product.find(visibleProductFilter(r))
       .select("slug updatedAt")
       .lean<{ slug: string; updatedAt: Date }[]>(),
-    listCategories(),
-    Catalogue.find(VISIBLE_CATALOGUE)
+    listCategories(r),
+    Catalogue.find(LISTED_CATALOGUE)
       .select("slug updatedAt")
       .lean<{ slug: string; updatedAt: Date }[]>(),
   ]);

@@ -137,10 +137,21 @@ describe("catalogues", () => {
 
   it("hides private and inactive catalogues", async () => {
     const p = await makeProduct();
-    await Catalogue.create({ name: "VIP", slug: "vip", isPrivate: true, productIds: [p._id] });
+    await Catalogue.create({
+      name: "VIP",
+      slug: "vip",
+      isPrivate: true,
+      passcode: "secret",
+      productIds: [p._id],
+    });
     await Catalogue.create({ name: "Old", slug: "old", isActive: false, productIds: [p._id] });
 
-    expect((await pub("/catalogues/vip")).status).toBe(404);
+    // A private catalogue shows only its name, for the passcode screen.
+    expect((await pub("/catalogues/vip")).body).toMatchObject({
+      name: "VIP",
+      access: "locked",
+      products: [],
+    });
     expect((await pub("/catalogues/old")).status).toBe(404);
     expect((await pub("/catalogues")).body.items).toEqual([]);
   });

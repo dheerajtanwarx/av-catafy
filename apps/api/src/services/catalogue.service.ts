@@ -31,6 +31,8 @@ function toDto(c: CatalogueLean, productCount: number): CatalogueDto {
     productIds: c.productIds.map((id) => id.toString()),
     isActive: c.isActive,
     isPrivate: c.isPrivate,
+    hidePrices: c.hidePrices,
+    passcode: c.passcode ?? null,
     sortOrder: c.sortOrder,
     productCount,
     updatedAt: c.updatedAt.toISOString(),
@@ -47,6 +49,7 @@ async function liveProducts(ids: Types.ObjectId[]): Promise<Map<string, ProductS
 
 export async function listCatalogues(): Promise<CatalogueDto[]> {
   const catalogues = await Catalogue.find()
+    .select("+passcode")
     .sort({ sortOrder: 1, createdAt: -1 })
     .lean<CatalogueLean[]>();
   const live = await liveProducts(catalogues.flatMap((c) => c.productIds));
@@ -56,7 +59,7 @@ export async function listCatalogues(): Promise<CatalogueDto[]> {
 }
 
 export async function getCatalogue(id: string): Promise<CatalogueDetailDto> {
-  const catalogue = await Catalogue.findById(id).lean<CatalogueLean>();
+  const catalogue = await Catalogue.findById(id).select("+passcode").lean<CatalogueLean>();
   if (!catalogue) throw AppError.notFound("Catalogue not found");
   const live = await liveProducts(catalogue.productIds);
   const products: CatalogueProductSummary[] = catalogue.productIds.flatMap((pid) => {
@@ -84,10 +87,19 @@ async function assertProductsExist(ids: string[]): Promise<void> {
     throw AppError.badRequest("Some products no longer exist", { field: "productIds" });
 }
 
+/** Restricting a catalogue needs a passcode, either new in this request or already saved. */
+function assertPasscode(input: CatalogueInputParsed, existing: string | null): void {
+  if ((input.isPrivate || input.hidePrices) && !input.passcode && !existing) {
+    throw AppError.badRequest("Set a passcode to restrict this catalogue", { field: "passcode" });
+  }
+}
+
 export async function createCatalogue(input: CatalogueInputParsed): Promise<CatalogueDetailDto> {
   await assertProductsExist(input.productIds);
+  assertPasscode(input, null);
   const slug = await uniqueSlug(Catalogue, input.slug ?? input.name);
-  const created = await Catalogue.create({ ...input, slug });
+  const { passcode, ...fields } = input;
+  const created = await Catalogue.create({ ...fields, slug, passcode: passcode ?? null });
   return getCatalogue(created._id.toString());
 }
 
@@ -95,11 +107,19 @@ export async function updateCatalogue(
   id: string,
   input: CatalogueInputParsed,
 ): Promise<CatalogueDetailDto> {
-  const catalogue = await Catalogue.findById(id);
+  const catalogue = await Catalogue.findById(id).select("+passcode");
   if (!catalogue) throw AppError.notFound("Catalogue not found");
   await assertProductsExist(input.productIds);
+  assertPasscode(input, catalogue.passcode ?? null);
   const slug = input.slug ? await uniqueSlug(Catalogue, input.slug, catalogue._id) : catalogue.slug;
-  catalogue.set({ ...input, slug, productIds: input.productIds.map((p) => new Types.ObjectId(p)) });
+  // A blank passcode keeps the current one; a new one revokes everyone who unlocked the old one.
+  const { passcode, ...fields } = input;
+  catalogue.set({
+    ...fields,
+    slug,
+    productIds: input.productIds.map((p) => new Types.ObjectId(p)),
+    ...(passcode ? { passcode } : {}),
+  });
   await catalogue.save();
   return getCatalogue(id);
 }

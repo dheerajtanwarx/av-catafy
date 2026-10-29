@@ -1,53 +1,92 @@
 import {
+  ACCESS_COOKIE,
   cartQuoteInputSchema,
+  catalogueUnlockInputSchema,
   checkoutInputSchema,
   publicProductListQuerySchema,
   slugSchema,
 } from "@catafy/types";
-import { Router } from "express";
+import { Router, type Request } from "express";
 import type { AppConfig } from "../config.js";
+import { ACCESS_TTL_SECONDS, signAccess } from "../lib/catalogue-access.js";
 import { AppError } from "../lib/errors.js";
 import { parse } from "../lib/validate.js";
+import { catalogueAccess } from "../middleware/catalogue-access.js";
 import { createRateLimit } from "../middleware/rate-limit.js";
+import { resolveRestrictions, unlockCatalogue } from "../services/access.service.js";
 import * as orders from "../services/order.service.js";
 import * as storefront from "../services/storefront.service.js";
 
-function slugParam(value: string | undefined, what: string): string {
+function slugParam(value: unknown, what: string): string {
   const result = slugSchema.safeParse(value);
   if (!result.success) throw AppError.notFound(`${what} not found`);
   return result.data;
 }
 
-/** Read-only storefront endpoints. No auth; Next.js caches the responses. */
-export function publicRouter({ revalidate }: Pick<AppConfig, "revalidate">): Router {
+function restrictions(req: Request) {
+  if (!req.restrictions) throw new Error("catalogueAccess middleware not mounted");
+  return req.restrictions;
+}
+
+/**
+ * Storefront endpoints. No login; Next.js caches the responses of anonymous requests. Buyers who
+ * unlocked a catalogue carry a signed cookie, and their responses are never cached.
+ */
+export function publicRouter({
+  revalidate,
+  jwtSecret,
+  isProd,
+}: Pick<AppConfig, "revalidate" | "jwtSecret" | "isProd">): Router {
   const router = Router();
+  router.use(catalogueAccess(jwtSecret));
 
   router.get("/store", async (_req, res) => {
     res.json(await storefront.getStore());
   });
 
-  router.get("/categories", async (_req, res) => {
-    res.json({ items: await storefront.listCategories() });
+  router.get("/categories", async (req, res) => {
+    res.json({ items: await storefront.listCategories(restrictions(req)) });
   });
 
   router.get("/products", async (req, res) => {
-    res.json(await storefront.listProducts(parse(publicProductListQuerySchema, req.query)));
+    const query = parse(publicProductListQuerySchema, req.query);
+    res.json(await storefront.listProducts(query, restrictions(req)));
   });
 
   router.get("/products/:slug", async (req, res) => {
-    res.json(await storefront.getProduct(slugParam(req.params.slug, "Product")));
+    res.json(await storefront.getProduct(slugParam(req.params.slug, "Product"), restrictions(req)));
   });
 
-  router.get("/catalogues", async (_req, res) => {
-    res.json({ items: await storefront.listCatalogues() });
+  router.get("/catalogues", async (req, res) => {
+    res.json({ items: await storefront.listCatalogues(restrictions(req)) });
   });
 
   router.get("/catalogues/:slug", async (req, res) => {
-    res.json(await storefront.getCatalogue(slugParam(req.params.slug, "Catalogue")));
+    const slug = slugParam(req.params.slug, "Catalogue");
+    res.json(await storefront.getCatalogue(slug, restrictions(req)));
   });
 
+  router.post(
+    "/catalogues/:slug/unlock",
+    createRateLimit({ windowMs: 15 * 60 * 1000, limit: 10 }),
+    async (req, res) => {
+      const slug = slugParam(req.params.slug, "Catalogue");
+      const { passcode } = parse(catalogueUnlockInputSchema, req.body);
+      const grants = await unlockCatalogue(slug, passcode, req.accessGrants ?? {});
+      res.cookie(ACCESS_COOKIE, await signAccess(grants, jwtSecret), {
+        httpOnly: true,
+        secure: isProd,
+        sameSite: "lax",
+        path: "/",
+        maxAge: ACCESS_TTL_SECONDS * 1000,
+      });
+      res.json({ ok: true });
+    },
+  );
+
   router.get("/sitemap", async (_req, res) => {
-    res.json({ items: await storefront.sitemap() });
+    // Built as an anonymous visitor whatever cookie the caller has.
+    res.json({ items: await storefront.sitemap(await resolveRestrictions({})) });
   });
 
   // ---------- Cart & orders (called from the browser via the Next.js rewrite) ----------
@@ -56,7 +95,8 @@ export function publicRouter({ revalidate }: Pick<AppConfig, "revalidate">): Rou
     "/cart/quote",
     createRateLimit({ windowMs: 60 * 1000, limit: 60 }),
     async (req, res) => {
-      res.json(await orders.quoteCart(parse(cartQuoteInputSchema, req.body).items));
+      const { items } = parse(cartQuoteInputSchema, req.body);
+      res.json(await orders.quoteCart(items, restrictions(req)));
     },
   );
 
@@ -64,7 +104,10 @@ export function publicRouter({ revalidate }: Pick<AppConfig, "revalidate">): Rou
     "/orders",
     createRateLimit({ windowMs: 15 * 60 * 1000, limit: 10 }),
     async (req, res) => {
-      const placed = await orders.placeOrder(parse(checkoutInputSchema, req.body));
+      const placed = await orders.placeOrder(
+        parse(checkoutInputSchema, req.body),
+        restrictions(req),
+      );
       // Stock changed, so the storefront's cached "in stock"/"only N left" must refresh.
       revalidate();
       res.status(201).json(placed);
