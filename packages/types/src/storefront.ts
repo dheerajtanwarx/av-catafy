@@ -20,6 +20,18 @@ export const catalogueInputSchema = z.object({
     .refine((ids) => new Set(ids).size === ids.length, "A product can only be added once"),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().default(0),
+  /** Private: the whole catalogue needs the passcode. */
+  isPrivate: z.boolean().default(false),
+  /** Price on request: anyone can browse; the passcode reveals prices and ordering. */
+  hidePrices: z.boolean().default(false),
+  /** New passcode; blank keeps the current one. Required the first time access is restricted. */
+  passcode: z
+    .string()
+    .trim()
+    .max(32)
+    .refine((v) => v === "" || v.length >= 4, "Use at least 4 characters")
+    .transform((v) => v || undefined)
+    .optional(),
 });
 export type CatalogueInput = z.input<typeof catalogueInputSchema>;
 export type CatalogueInputParsed = z.output<typeof catalogueInputSchema>;
@@ -42,6 +54,9 @@ export interface CatalogueDto {
   productIds: string[];
   isActive: boolean;
   isPrivate: boolean;
+  hidePrices: boolean;
+  /** Shown to the owner so it can be re-shared; null when none is set. */
+  passcode: string | null;
   sortOrder: number;
   productCount: number;
   updatedAt: string;
@@ -78,7 +93,9 @@ export interface PublicProductCard {
   id: string;
   slug: string;
   title: string;
-  price: number;
+  /** Null when the price is on request (hidden until a catalogue passcode is entered). */
+  price: number | null;
+  priceOnRequest: boolean;
   mrp: number | null;
   discountPercent: number | null;
   image: ImageInput | null;
@@ -104,8 +121,16 @@ export interface PublicProduct extends Omit<PublicProductCard, "image" | "hoverI
   images: ImageInput[];
   variants: PublicVariant[];
   category: { name: string; slug: string } | null;
+  /** For price-on-request products: a catalogue whose passcode reveals the price. */
+  unlockVia: { slug: string; name: string } | null;
   updatedAt: string;
 }
+
+/**
+ * open: everything visible. prices_locked: browsable, prices need the passcode.
+ * locked: private and not unlocked; only the name is returned.
+ */
+export type CatalogueAccess = "open" | "prices_locked" | "locked";
 
 export interface PublicCatalogue {
   slug: string;
@@ -113,6 +138,7 @@ export interface PublicCatalogue {
   description: string;
   coverImage: ImageInput | null;
   productCount: number;
+  access: CatalogueAccess;
 }
 
 export interface PublicCatalogueDetail extends PublicCatalogue {
@@ -149,3 +175,13 @@ export function discountPercent(price: number, mrp: number | null | undefined): 
 
 /** Cache tag for everything the storefront shows; the API revalidates it after admin writes. */
 export const CATALOG_CACHE_TAG = "catalog";
+
+// ---------- Catalogue passcodes ----------
+
+/** httpOnly cookie holding the catalogues this browser has unlocked (signed by the API). */
+export const ACCESS_COOKIE = "catafy_access";
+
+export const catalogueUnlockInputSchema = z.object({
+  passcode: z.string().trim().min(1, "Enter the passcode").max(32),
+});
+export type CatalogueUnlockInput = z.infer<typeof catalogueUnlockInputSchema>;
