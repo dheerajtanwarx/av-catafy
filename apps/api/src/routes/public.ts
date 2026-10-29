@@ -3,6 +3,8 @@ import {
   cartQuoteInputSchema,
   catalogueUnlockInputSchema,
   checkoutInputSchema,
+  SESSION_COOKIE,
+  trackEventInputSchema,
   publicProductListQuerySchema,
   slugSchema,
 } from "@catafy/types";
@@ -10,10 +12,12 @@ import { Router, type Request } from "express";
 import type { AppConfig } from "../config.js";
 import { ACCESS_TTL_SECONDS, signAccess } from "../lib/catalogue-access.js";
 import { AppError } from "../lib/errors.js";
+import { verifySession } from "../lib/session.js";
 import { parse } from "../lib/validate.js";
 import { catalogueAccess } from "../middleware/catalogue-access.js";
 import { createRateLimit } from "../middleware/rate-limit.js";
 import { resolveRestrictions, unlockCatalogue } from "../services/access.service.js";
+import { recordEvent } from "../services/analytics.service.js";
 import * as orders from "../services/order.service.js";
 import * as storefront from "../services/storefront.service.js";
 
@@ -38,6 +42,19 @@ export function publicRouter({
   isProd,
 }: Pick<AppConfig, "revalidate" | "jwtSecret" | "isProd">): Router {
   const router = Router();
+
+  // Analytics events don't depend on catalogue access, so they skip that lookup.
+  router.post("/events", createRateLimit({ windowMs: 60 * 1000, limit: 120 }), async (req, res) => {
+    const event = parse(trackEventInputSchema, req.body);
+    // The owner checking their own store isn't a visitor.
+    const owner = await verifySession(
+      req.cookies?.[SESSION_COOKIE] as string | undefined,
+      jwtSecret,
+    );
+    if (!owner) await recordEvent(event, req.get("user-agent") ?? "");
+    res.status(204).end();
+  });
+
   router.use(catalogueAccess(jwtSecret));
 
   router.get("/store", async (_req, res) => {
