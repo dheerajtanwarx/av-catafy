@@ -28,6 +28,7 @@ export function testConfig(overrides: Partial<AppConfig> = {}): AppConfig {
       publicBaseUrl: "https://img.test.dev",
     }),
     revalidate: () => undefined,
+    proxySecret: "test-proxy-secret-1234",
     ...overrides,
   };
 }

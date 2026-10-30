@@ -7,6 +7,8 @@ declare global {
     interface Request {
       /** Set by requireAuth on admin routes. */
       user?: SessionUser;
+      /** Set by clientIp: the buyer's address, used only as the rate-limit key. */
+      clientIp?: string;
       /** Set by catalogueAccess on public routes. */
       accessGrants?: AccessGrants;
       restrictions?: Restrictions;

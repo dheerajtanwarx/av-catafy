@@ -10,4 +10,6 @@ export interface AppConfig {
   jwtSecret: string;
   storage: Storage;
   revalidate: Revalidate;
+  /** Shared with the web app (REVALIDATE_SECRET): proves a forwarded client IP came from it. */
+  proxySecret: string;
 }

@@ -32,6 +32,7 @@ async function main(): Promise<void> {
     jwtSecret: env.JWT_SECRET,
     storage,
     revalidate,
+    proxySecret: env.REVALIDATE_SECRET,
   });
   const server = app.listen(env.API_PORT, () => {
     logger.info(`API listening on http://localhost:${env.API_PORT}`);
