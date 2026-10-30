@@ -1,9 +1,10 @@
 import { publicProductListQuerySchema } from "@catafy/types";
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { ListingFilters } from "@/components/store/listing-filters";
+import { ListingFilters, ListingFiltersFallback } from "@/components/store/listing-filters";
 import { Pagination } from "@/components/store/pagination";
 import { ProductGrid } from "@/components/store/product-card";
+import { truncate } from "@/lib/seo";
 import { getCategories, getProducts, getStore } from "@/lib/storefront";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -29,12 +30,15 @@ export async function generateMetadata({
   searchParams: SearchParams;
 }): Promise<Metadata> {
   const query = await parseQuery(searchParams);
-  const category = query.category
-    ? (await getCategories()).find((c) => c.slug === query.category)
-    : undefined;
+  const [categories, store] = await Promise.all([getCategories(), getStore()]);
+  const category = query.category ? categories.find((c) => c.slug === query.category) : undefined;
   return {
     title: query.q ? `Search: ${query.q}` : (category?.name ?? "Shop all"),
-    description: category?.description || undefined,
+    // Always set: a page-level undefined would drop the layout's default description.
+    description: truncate(
+      category?.description ||
+        `${category ? `${category.name} from` : "The full collection at"} ${store.storeName}.`,
+    ),
     // Search result pages shouldn't be indexed; category pages should.
     robots: query.q ? { index: false } : undefined,
     alternates: { canonical: category ? `/products?category=${category.slug}` : "/products" },
@@ -71,12 +75,13 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
         </p>
       </header>
       <div className="mb-8">
-        <Suspense>
+        <Suspense fallback={<ListingFiltersFallback hasCategories={categories.length > 0} />}>
           <ListingFilters categories={categories} />
         </Suspense>
       </div>
       {result.items.length > 0 ? (
         <>
+          <h2 className="sr-only">Products</h2>
           <ProductGrid products={result.items} currency={store.currency} priorityCount={4} />
           <Pagination page={result.page} totalPages={result.totalPages} hrefFor={hrefFor} />
         </>

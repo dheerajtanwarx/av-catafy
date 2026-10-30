@@ -132,3 +132,20 @@ export function ListingFilters({ categories }: { categories: PublicCategory[] })
     </div>
   );
 }
+
+/**
+ * Same boxes and heights as ListingFilters, shown while it waits for the URL's search params on
+ * the client. Without it the product grid jumps down when the filters appear (CLS).
+ */
+export function ListingFiltersFallback({ hasCategories }: { hasCategories: boolean }) {
+  return (
+    <div className="space-y-4" aria-hidden>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="h-11 flex-1 rounded-md border bg-muted/40" />
+        <div className="h-11 rounded-md border bg-muted/40 sm:w-52" />
+      </div>
+      {/* One row of category pills: py-1.5 + 20px text line + 2px border = 34px. */}
+      {hasCategories && <div className="h-[34px]" />}
+    </div>
+  );
+}

@@ -106,6 +106,7 @@ export default async function CataloguePage({ params }: { params: Params }) {
             </div>
           </div>
         )}
+        <h2 className="sr-only">Pieces in this collection</h2>
         <ProductGrid
           products={catalogue.products}
           currency={store.currency}
