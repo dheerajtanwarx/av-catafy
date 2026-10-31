@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { phoneSchema, slugSchema, toSlug } from "../src/common.js";
+import { discountPercent } from "../src/storefront.js";
 
 describe("phoneSchema", () => {
   it.each(["9876543210", "+91 98765 43210", "09876543210", "91-9876543210"])(
@@ -20,5 +21,17 @@ describe("toSlug", () => {
     const slug = toSlug("  Diwali Collection — 2026! ");
     expect(slug).toBe("diwali-collection-2026");
     expect(slugSchema.safeParse(slug).success).toBe(true);
+  });
+});
+
+describe("discountPercent", () => {
+  it("rounds to whole percent", () => {
+    expect(discountPercent(129900, 159900)).toBe(19);
+  });
+
+  it("returns null without a real discount", () => {
+    expect(discountPercent(1000, null)).toBeNull();
+    expect(discountPercent(1000, 1000)).toBeNull();
+    expect(discountPercent(1000, 900)).toBeNull();
   });
 });

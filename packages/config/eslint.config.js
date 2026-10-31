@@ -7,7 +7,8 @@ export default tseslint.config(
   {
     ignores: [
       "**/dist/**",
-      "**/.next/**",
+      // Any Next.js dist dir, including NEXT_DIST_DIR builds such as .next-e2e.
+      "**/.next*/**",
       "**/node_modules/**",
       "**/coverage/**",
       "**/next-env.d.ts",
@@ -19,7 +20,10 @@ export default tseslint.config(
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/consistent-type-imports": "error",
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
     },
   },
   prettier,

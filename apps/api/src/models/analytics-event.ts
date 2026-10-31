@@ -25,7 +25,12 @@ const analyticsEventSchema = new Schema(
 
 analyticsEventSchema.index({ createdAt: 1, type: 1 });
 analyticsEventSchema.index({ createdAt: 1 }, { expireAfterSeconds: RETENTION_SECONDS });
-analyticsEventSchema.index({ visitorId: 1, createdAt: -1 });
+// "Count each order once" check on every confirmation-page view.
+analyticsEventSchema.index(
+  { orderId: 1 },
+  // Only order_placed events carry an orderId; the query names the type, so it can use this.
+  { partialFilterExpression: { type: "order_placed" } },
+);
 analyticsEventSchema.index({ productId: 1, type: 1, createdAt: -1 });
 
 export type AnalyticsEventDoc = InferSchemaType<typeof analyticsEventSchema>;

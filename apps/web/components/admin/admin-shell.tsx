@@ -1,6 +1,20 @@
 "use client";
 
-import { FolderTree, LayoutDashboard, LogOut, Menu, Shirt, Store } from "lucide-react";
+import {
+  BookOpen,
+  ChartColumn,
+  ExternalLink,
+  FolderTree,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Radio,
+  Receipt,
+  Settings,
+  Shirt,
+  Store,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
@@ -11,8 +25,14 @@ import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/orders", label: "Orders", icon: Receipt },
+  { href: "/admin/customers", label: "Customers", icon: Users },
   { href: "/admin/products", label: "Products", icon: Shirt },
   { href: "/admin/categories", label: "Categories", icon: FolderTree },
+  { href: "/admin/catalogues", label: "Catalogues", icon: BookOpen },
+  { href: "/admin/live", label: "Live", icon: Radio },
+  { href: "/admin/reports", label: "Reports", icon: ChartColumn },
+  { href: "/admin/settings", label: "Settings", icon: Settings },
 ] as const;
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
@@ -69,6 +89,15 @@ export function AdminShell({ children }: { children: ReactNode }) {
     </Button>
   );
 
+  const storeLink = (
+    <Button variant="ghost" className="justify-start gap-3 text-muted-foreground" asChild>
+      <a href="/" target="_blank" rel="noreferrer">
+        <ExternalLink className="size-4" aria-hidden />
+        View store
+      </a>
+    </Button>
+  );
+
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[240px_1fr]">
       <aside className="sticky top-0 hidden h-dvh flex-col gap-6 border-r bg-sidebar py-6 md:flex">
@@ -76,7 +105,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <div className="flex-1 px-3">
           <NavLinks />
         </div>
-        <div className="px-3">{logoutButton}</div>
+        <div className="flex flex-col px-3">
+          {storeLink}
+          {logoutButton}
+        </div>
       </aside>
 
       <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur md:hidden">
@@ -92,7 +124,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <div className="flex-1 px-3">
               <NavLinks onNavigate={() => setOpen(false)} />
             </div>
-            <div className="px-3">{logoutButton}</div>
+            <div className="flex flex-col px-3">
+              {storeLink}
+              {logoutButton}
+            </div>
           </SheetContent>
         </Sheet>
         <Brand />

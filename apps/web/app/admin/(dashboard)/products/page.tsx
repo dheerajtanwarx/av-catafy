@@ -1,22 +1,14 @@
 "use client";
 
 import { formatPaise, type AdminProductListQuery, type ProductDto } from "@catafy/types";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ImageOff,
-  Pencil,
-  Plus,
-  Search,
-  Shirt,
-  Trash2,
-} from "lucide-react";
+import { ImageOff, Pencil, Plus, Search, Shirt, Trash2, Upload } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { PageHeader } from "@/components/admin/page-header";
+import { Pager } from "@/components/admin/pager";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -40,15 +32,13 @@ import {
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { errorMessage } from "@/lib/api";
 import { imageUrl } from "@/lib/images";
-import { useCategories, useDeleteProduct, useProducts } from "@/lib/queries";
+import { useCategories, useDeleteProduct, useProducts, useSettings } from "@/lib/queries";
 
-// Replaced by the store's low-stock threshold setting in Phase 7.
-const LOW_STOCK = 5;
 const ALL = "all";
 
-function StockBadge({ stock }: { stock: number }) {
+function StockBadge({ stock, lowStock }: { stock: number; lowStock: number }) {
   if (stock === 0) return <Badge variant="destructive">Out of stock</Badge>;
-  if (stock <= LOW_STOCK)
+  if (stock <= lowStock)
     return <Badge className="bg-amber-100 text-amber-900">Low · {stock}</Badge>;
   return <span className="tabular-nums">{stock}</span>;
 }
@@ -71,6 +61,7 @@ export default function ProductsPage() {
   const categories = useCategories();
   const categoryName = new Map(categories.data?.map((c) => [c.id, c.name]));
   const remove = useDeleteProduct();
+  const lowStock = useSettings().data?.lowStockThreshold ?? 5;
   const filtered = Boolean(q) || status !== "all" || categoryId !== ALL;
 
   async function onDelete(p: ProductDto) {
@@ -88,12 +79,20 @@ export default function ProductsPage() {
         title="Products"
         description={data ? `${data.total} product${data.total === 1 ? "" : "s"}` : undefined}
         actions={
-          <Button asChild>
-            <Link href="/admin/products/new">
-              <Plus className="size-4" aria-hidden />
-              Add product
-            </Link>
-          </Button>
+          <>
+            <Button variant="outline" asChild>
+              <Link href="/admin/products/import">
+                <Upload className="size-4" aria-hidden />
+                Import
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/admin/products/new">
+                <Plus className="size-4" aria-hidden />
+                Add product
+              </Link>
+            </Button>
+          </>
         }
       />
 
@@ -230,7 +229,7 @@ export default function ProductsPage() {
                         )}
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
-                        <StockBadge stock={p.totalStock} />
+                        <StockBadge stock={p.totalStock} lowStock={lowStock} />
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
                         <Badge variant={p.isActive ? "secondary" : "outline"}>
@@ -261,31 +260,7 @@ export default function ProductsPage() {
         )}
       </Card>
 
-      {data && data.totalPages > 1 && (
-        <nav className="mt-4 flex items-center justify-end gap-2" aria-label="Pagination">
-          <span className="mr-2 text-sm text-muted-foreground">
-            Page {data.page} of {data.totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="icon"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-            aria-label="Previous page"
-          >
-            <ChevronLeft className="size-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            disabled={page >= data.totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            aria-label="Next page"
-          >
-            <ChevronRight className="size-4" />
-          </Button>
-        </nav>
-      )}
+      {data && <Pager page={data.page} totalPages={data.totalPages} onPage={setPage} />}
     </>
   );
 }

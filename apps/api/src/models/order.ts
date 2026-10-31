@@ -43,6 +43,8 @@ const statusChangeSchema = new Schema(
 const orderSchema = new Schema(
   {
     orderNumber: { type: String, required: true, unique: true },
+    /** Unguessable id for the buyer's confirmation page (order numbers are sequential). */
+    publicToken: { type: String, required: true, unique: true },
     customerId: { type: Schema.Types.ObjectId, ref: "Customer", required: true },
     shippingAddress: { type: addressSchema, required: true },
     note: { type: String, trim: true, default: "" },

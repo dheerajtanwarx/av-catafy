@@ -32,7 +32,6 @@ const productSchema = new Schema(
   { timestamps: true, strict: true },
 );
 
-productSchema.index({ title: "text", tags: "text" }, { weights: { title: 5, tags: 2 } });
 productSchema.index({ deletedAt: 1, isActive: 1, categoryId: 1, createdAt: -1 });
 productSchema.index({ deletedAt: 1, isActive: 1, isFeatured: 1 });
 productSchema.index(

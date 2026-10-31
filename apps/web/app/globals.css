@@ -81,3 +81,11 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Invoices and packing slips (/admin/orders/[id]/print). */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+}

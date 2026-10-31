@@ -12,7 +12,9 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "format": "prettier --write .",
-    "seed": "pnpm --filter @catafy/api seed"
+    "seed": "pnpm --filter @catafy/api seed",
+    "demo": "pnpm --filter @catafy/api demo",
+    "demo:remove": "pnpm --filter @catafy/api demo:remove"
   },
   "devDependencies": {
     "prettier": "^3.3.3",

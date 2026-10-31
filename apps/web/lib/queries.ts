@@ -1,12 +1,32 @@
 "use client";
 
 import type {
+  AdminCustomerDetail,
+  AdminCustomerListQuery,
+  AdminCustomerSummary,
+  AdminOrderDetail,
+  AdminOrderListQuery,
+  AdminOrderSummary,
   AdminProductListQuery,
+  CatalogueDetailDto,
+  CatalogueDto,
+  CatalogueInputParsed,
   CategoryDto,
   CategoryInput,
+  CustomerUpdateInput,
+  ImportInput,
+  ImportReport,
+  InvoiceStoreInfo,
+  LiveSnapshot,
+  OrderStatus,
+  OrderUpdateInput,
   Paginated,
   ProductDto,
   ProductInputParsed,
+  ReportsDto,
+  ReportsQuery,
+  StoreSettingsDto,
+  StoreSettingsInputParsed,
 } from "@catafy/types";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
@@ -16,6 +36,18 @@ export const queryKeys = {
   products: (q: AdminProductListQuery) => ["admin", "products", q] as const,
   productsAll: ["admin", "products"] as const,
   product: (id: string) => ["admin", "product", id] as const,
+  catalogues: ["admin", "catalogues"] as const,
+  catalogue: (id: string) => ["admin", "catalogue", id] as const,
+  ordersAll: ["admin", "orders"] as const,
+  orders: (q: AdminOrderListQuery) => ["admin", "orders", q] as const,
+  order: (id: string) => ["admin", "order", id] as const,
+  orderPrint: (id: string) => ["admin", "order", id, "print"] as const,
+  customersAll: ["admin", "customers"] as const,
+  customers: (q: AdminCustomerListQuery) => ["admin", "customers", q] as const,
+  customer: (id: string) => ["admin", "customer", id] as const,
+  live: ["admin", "live"] as const,
+  reports: (q: ReportsQuery) => ["admin", "reports", q] as const,
+  settings: ["admin", "settings"] as const,
 };
 
 // ---------- Categories ----------
@@ -86,5 +118,176 @@ export function useDeleteProduct() {
       void qc.invalidateQueries({ queryKey: queryKeys.productsAll });
       void qc.invalidateQueries({ queryKey: queryKeys.categories });
     },
+  });
+}
+
+export function useImportProducts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ImportInput) =>
+      api<ImportReport>("/admin/import/products", { method: "POST", body: input }),
+    onSuccess: (report) => {
+      if (!report.summary.created) return;
+      void qc.invalidateQueries({ queryKey: queryKeys.productsAll });
+      void qc.invalidateQueries({ queryKey: queryKeys.categories });
+    },
+  });
+}
+
+// ---------- Catalogues ----------
+
+export function useCatalogues() {
+  return useQuery({
+    queryKey: queryKeys.catalogues,
+    queryFn: () => api<{ items: CatalogueDto[] }>("/admin/catalogues").then((r) => r.items),
+  });
+}
+
+export function useCatalogue(id: string) {
+  return useQuery({
+    queryKey: queryKeys.catalogue(id),
+    queryFn: () => api<CatalogueDetailDto>(`/admin/catalogues/${id}`),
+  });
+}
+
+export function useSaveCatalogue() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id?: string; input: CatalogueInputParsed }) =>
+      id
+        ? api<CatalogueDetailDto>(`/admin/catalogues/${id}`, { method: "PUT", body: input })
+        : api<CatalogueDetailDto>("/admin/catalogues", { method: "POST", body: input }),
+    onSuccess: (catalogue) => {
+      qc.setQueryData(queryKeys.catalogue(catalogue.id), catalogue);
+      void qc.invalidateQueries({ queryKey: queryKeys.catalogues });
+    },
+  });
+}
+
+export function useDeleteCatalogue() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<void>(`/admin/catalogues/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.catalogues }),
+  });
+}
+
+// ---------- Orders ----------
+
+export function useOrders(query: AdminOrderListQuery) {
+  return useQuery({
+    queryKey: queryKeys.orders(query),
+    queryFn: ({ signal }) => api<Paginated<AdminOrderSummary>>("/admin/orders", { query, signal }),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useOrder(id: string) {
+  return useQuery({
+    queryKey: queryKeys.order(id),
+    queryFn: () => api<AdminOrderDetail>(`/admin/orders/${id}`),
+  });
+}
+
+export function useOrderPrint(id: string) {
+  return useQuery({
+    queryKey: queryKeys.orderPrint(id),
+    queryFn: () =>
+      api<{ order: AdminOrderDetail; store: InvoiceStoreInfo }>(`/admin/orders/${id}/print`),
+  });
+}
+
+/** Status changes and edits both return the full order; lists and customer totals go stale. */
+function useOrderMutation<V>(mutationFn: (vars: V) => Promise<AdminOrderDetail>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: (order) => {
+      qc.setQueryData(queryKeys.order(order.id), order);
+      void qc.invalidateQueries({ queryKey: queryKeys.ordersAll });
+      void qc.invalidateQueries({ queryKey: queryKeys.customersAll });
+      void qc.invalidateQueries({ queryKey: queryKeys.customer(order.customerId) });
+      // A cancellation returns stock.
+      void qc.invalidateQueries({ queryKey: queryKeys.productsAll });
+    },
+  });
+}
+
+export function useChangeOrderStatus(id: string) {
+  return useOrderMutation((status: OrderStatus) =>
+    api<AdminOrderDetail>(`/admin/orders/${id}/status`, { method: "POST", body: { status } }),
+  );
+}
+
+export function useUpdateOrder(id: string) {
+  return useOrderMutation((input: OrderUpdateInput) =>
+    api<AdminOrderDetail>(`/admin/orders/${id}`, { method: "PATCH", body: input }),
+  );
+}
+
+// ---------- Customers ----------
+
+export function useCustomers(query: AdminCustomerListQuery) {
+  return useQuery({
+    queryKey: queryKeys.customers(query),
+    queryFn: ({ signal }) =>
+      api<Paginated<AdminCustomerSummary>>("/admin/customers", { query, signal }),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useCustomer(id: string) {
+  return useQuery({
+    queryKey: queryKeys.customer(id),
+    queryFn: () => api<AdminCustomerDetail>(`/admin/customers/${id}`),
+  });
+}
+
+export function useUpdateCustomer(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CustomerUpdateInput) =>
+      api<AdminCustomerDetail>(`/admin/customers/${id}`, { method: "PATCH", body: input }),
+    onSuccess: (customer) => qc.setQueryData(queryKeys.customer(id), customer),
+  });
+}
+
+// ---------- Analytics ----------
+
+export const LIVE_POLL_MS = 10_000;
+
+/** Short polling (decision 6). TanStack Query pauses it while the tab is hidden. */
+export function useLive() {
+  return useQuery({
+    queryKey: queryKeys.live,
+    queryFn: () => api<LiveSnapshot>("/admin/analytics/live"),
+    refetchInterval: LIVE_POLL_MS,
+  });
+}
+
+export function useReports(query: ReportsQuery) {
+  return useQuery({
+    queryKey: queryKeys.reports(query),
+    queryFn: ({ signal }) => api<ReportsDto>("/admin/analytics/reports", { query, signal }),
+    placeholderData: keepPreviousData,
+  });
+}
+
+// ---------- Settings ----------
+
+export function useSettings() {
+  return useQuery({
+    queryKey: queryKeys.settings,
+    queryFn: () => api<StoreSettingsDto>("/admin/settings"),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useSaveSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: StoreSettingsInputParsed) =>
+      api<StoreSettingsDto>("/admin/settings", { method: "PUT", body: input }),
+    onSuccess: (settings) => qc.setQueryData(queryKeys.settings, settings),
   });
 }

@@ -12,7 +12,13 @@ const r2 = new URL(env.R2_PUBLIC_BASE_URL);
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Lets a production build/test run alongside `next dev` without sharing .next.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   poweredByHeader: false,
+  // Put metadata in <head> for every client instead of streaming it to "non-bots". Link previews
+  // (title, image, price) are how this store is shared, and a preview fetcher missing from
+  // Next's bot list would otherwise see none. The metadata reads the same cached data as the page.
+  htmlLimitedBots: /.*/,
   env: {
     // Needed client-side to build image URLs from stored R2 keys.
     NEXT_PUBLIC_R2_PUBLIC_BASE_URL: env.R2_PUBLIC_BASE_URL.replace(/\/+$/, ""),
@@ -28,6 +34,24 @@ const nextConfig: NextConfig = {
         pathname: `${r2.pathname.replace(/\/$/, "")}/**`,
       },
     ],
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          // Nothing here is meant to be framed (clickjacking on the admin in particular).
+          { key: "X-Frame-Options", value: "DENY" },
+          {
+            key: "Content-Security-Policy",
+            value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'",
+          },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        ],
+      },
+    ];
   },
   // The browser only ever talks to this origin; Express sits behind it. This keeps auth cookies
   // first-party and removes the need for CORS / COOKIE_DOMAIN / CSRF tokens.
